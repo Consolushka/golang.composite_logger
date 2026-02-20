@@ -1,0 +1,46 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - depguard
+    - errcheck
+    - errorlint
+    - gocyclo
+    - govet
+    - noctx
+    - nilerr
+    - nilnil
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosimple
+    - revive
+    - gofmt
+    - goimports
+    - testifylint
+    - nolintlint
+    - wrapcheck
+
+linters-settings:
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: github.com/pkg/errors
+            desc: "use standard library errors package"
+  gocyclo:
+    min-complexity: 20
+  revive:
+    severity: warning
+  govet:
+    enable:
+      - shadow
+
+issues:
+  exclude-use-default: false
