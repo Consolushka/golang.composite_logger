@@ -1,6 +1,11 @@
 package composite_logger
 
-import "github.com/sirupsen/logrus"
+import (
+	"errors"
+	"strings"
+
+	"github.com/sirupsen/logrus"
+)
 
 type Level int
 
@@ -46,4 +51,19 @@ func (l Level) ToLogrus() logrus.Level {
 	default:
 		return logrus.InfoLevel
 	}
+}
+
+func ParseLevel(lvl string) (Level, error) {
+	switch strings.ToLower(lvl) {
+	case "info":
+		return InfoLevel, nil
+	case "warn", "warning":
+		return WarningLevel, nil
+	case "error":
+		return ErrorLevel, nil
+	case "fatal":
+		return FatalLevel, nil
+	}
+
+	return InfoLevel, errors.New("invalid log level: " + lvl)
 }
