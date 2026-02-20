@@ -7,11 +7,14 @@ import (
 
 var instance CompositeLogger
 
+type Logger = ports.Logger
+type LoggerSetting = ports.LoggerSetting
+
 type CompositeLogger struct {
 	loggers []ports.Logger
 }
 
-func Init(settings ...ports.LoggerSetting) {
+func Init(settings ...LoggerSetting) {
 	loggers := make([]ports.Logger, 0, len(settings))
 	for _, s := range settings {
 		loggers = append(loggers, s.InitLogger())
