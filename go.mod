@@ -1,4 +1,4 @@
-module composite_logger
+module github.com/Consolushka/golang.composite_logger
 
 go 1.25
 
