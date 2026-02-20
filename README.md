@@ -14,7 +14,7 @@ A flexible, multi-destination logging library for Go, built with **Hexagonal Arc
 ## Installation
 
 ```bash
-go get composite_logger
+go get github.com/Consolushka/golang.composite_logger
 ```
 
 ## Quick Start
@@ -23,8 +23,8 @@ go get composite_logger
 package main
 
 import (
-	"composite_logger/pkg"
-	"composite_logger/pkg/adapters/setting"
+	"github.com/Consolushka/golang.composite_logger/pkg"
+	"github.com/Consolushka/golang.composite_logger/pkg/adapters/setting"
 )
 
 func main() {

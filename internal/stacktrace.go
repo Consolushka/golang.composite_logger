@@ -81,8 +81,8 @@ func BuildFallbackStackTrace() string {
 }
 
 func ShouldIncludeFrame(function string) bool {
-	return !strings.Contains(function, "composite_logger/pkg/") &&
-		!strings.Contains(function, "composite_logger/internal")
+	return !strings.Contains(function, "github.com/Consolushka/golang.composite_logger/pkg/") &&
+		!strings.Contains(function, "github.com/Consolushka/golang.composite_logger/internal")
 }
 
 func FormatFrame(frame runtime.Frame) string {

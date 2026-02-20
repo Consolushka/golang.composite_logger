@@ -1,10 +1,9 @@
 package setting
 
 import (
-	"composite_logger/internal/adapters/logger"
-	composite_logger "composite_logger/pkg"
-	"composite_logger/pkg/ports"
-
+	"github.com/Consolushka/golang.composite_logger/internal/adapters/logger"
+	compositelogger "github.com/Consolushka/golang.composite_logger/pkg"
+	"github.com/Consolushka/golang.composite_logger/pkg/ports"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -12,10 +11,10 @@ type TelegramSetting struct {
 	Enabled              bool
 	BotKey               string
 	ChatId               int64
-	LowerLevel           composite_logger.Level
+	LowerLevel           compositelogger.Level
 	UseLevelTitleWrapper bool
-	LevelWrappers        map[composite_logger.Level]string
-	LevelTitles          map[composite_logger.Level]string
+	LevelWrappers        map[compositelogger.Level]string
+	LevelTitles          map[compositelogger.Level]string
 }
 
 var botAPIConstructor = tgbotapi.NewBotAPI
@@ -26,10 +25,10 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 		panic("Error creating telegram bot api. Error: " + err.Error())
 	}
 
-	finalWrappers := make(map[composite_logger.Level]string)
+	finalWrappers := make(map[compositelogger.Level]string)
 	if t.UseLevelTitleWrapper {
 		// Сначала заполняем дефолтными
-		for level, wrapper := range composite_logger.DefaultLevelWrappers {
+		for level, wrapper := range compositelogger.DefaultLevelWrappers {
 			finalWrappers[level] = wrapper
 		}
 		// Перекрываем пользовательскими

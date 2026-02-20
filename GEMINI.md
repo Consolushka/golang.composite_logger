@@ -17,8 +17,8 @@ The library uses a variadic `Init` function that accepts multiple settings:
 
 ```go
 import (
-    "composite_logger/pkg"
-    "composite_logger/pkg/adapters/setting"
+    "github.com/Consolushka/golang.composite_logger/pkg"
+    "github.com/Consolushka/golang.composite_logger/pkg/adapters/setting"
 )
 
 func main() {

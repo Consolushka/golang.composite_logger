@@ -1,11 +1,12 @@
 package composite_logger
 
 import (
-	"composite_logger/internal"
-	"composite_logger/pkg/ports"
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/Consolushka/golang.composite_logger/internal"
+	"github.com/Consolushka/golang.composite_logger/pkg/ports"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

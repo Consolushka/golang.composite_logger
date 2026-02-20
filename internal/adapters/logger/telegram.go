@@ -1,12 +1,13 @@
 package logger
 
 import (
-	composite_logger "composite_logger/pkg"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
+
+	composite_logger "github.com/Consolushka/golang.composite_logger/pkg"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )

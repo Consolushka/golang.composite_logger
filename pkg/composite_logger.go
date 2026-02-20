@@ -1,8 +1,8 @@
 package composite_logger
 
 import (
-	"composite_logger/internal"
-	"composite_logger/pkg/ports"
+	"github.com/Consolushka/golang.composite_logger/internal"
+	"github.com/Consolushka/golang.composite_logger/pkg/ports"
 )
 
 var instance CompositeLogger

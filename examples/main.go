@@ -1,8 +1,8 @@
 package main
 
 import (
-	"composite_logger/pkg"
-	"composite_logger/pkg/adapters/setting"
+	"github.com/Consolushka/golang.composite_logger/pkg"
+	"github.com/Consolushka/golang.composite_logger/pkg/adapters/setting"
 	"errors"
 )
 

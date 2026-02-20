@@ -31,10 +31,10 @@ func TestShouldIncludeFrame(t *testing.T) {
 	}{
 		{"main.main", true},
 		{"net/http.HandlerFunc.ServeHTTP", true},
-		{"composite_logger/pkg/Info", false},
-		{"composite_logger/pkg/ports/Setting.InitLogger", false},
-		{"composite_logger/internal.BuildErrorContextWithStackTrace", false},
-		{"composite_logger/internal/adapters/logger.TelegramLogger.send", false},
+		{"github.com/Consolushka/golang.composite_logger/pkg/Info", false},
+		{"github.com/Consolushka/golang.composite_logger/pkg/ports/Setting.InitLogger", false},
+		{"github.com/Consolushka/golang.composite_logger/internal.BuildErrorContextWithStackTrace", false},
+		{"github.com/Consolushka/golang.composite_logger/internal/adapters/logger.TelegramLogger.send", false},
 	}
 
 	for _, tt := range tests {

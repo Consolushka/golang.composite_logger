@@ -1,8 +1,9 @@
 package setting
 
 import (
-	composite_logger "composite_logger/pkg"
 	"testing"
+
+	composite_logger "github.com/Consolushka/golang.composite_logger/pkg"
 
 	"github.com/stretchr/testify/assert"
 )
