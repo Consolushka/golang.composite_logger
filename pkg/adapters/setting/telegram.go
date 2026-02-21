@@ -48,3 +48,7 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 		LevelTitles:          t.LevelTitles,
 	}
 }
+
+func (t TelegramSetting) IsEnabled() bool {
+	return t.Enabled
+}

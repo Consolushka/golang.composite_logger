@@ -20,6 +20,10 @@ func (t testSetting) InitLogger() ports.Logger {
 	return t.l
 }
 
+func (t testSetting) IsEnabled() bool {
+	return true
+}
+
 type stackAwareError struct {
 	message string
 	stack   string

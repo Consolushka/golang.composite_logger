@@ -8,6 +8,7 @@ import (
 )
 
 type ConsoleSetting struct {
+	Enabled    bool
 	LowerLevel compositelogger.Level
 }
 
@@ -16,4 +17,8 @@ func (s ConsoleSetting) InitLogger() ports.Logger {
 	logrusInstance.SetLevel(s.LowerLevel.ToLogrus())
 
 	return logger.NewConsoleLogger(logrusInstance)
+}
+
+func (s ConsoleSetting) IsEnabled() bool {
+	return s.Enabled
 }

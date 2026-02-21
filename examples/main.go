@@ -1,9 +1,10 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/Consolushka/golang.composite_logger/pkg"
 	"github.com/Consolushka/golang.composite_logger/pkg/adapters/setting"
-	"errors"
 )
 
 func main() {

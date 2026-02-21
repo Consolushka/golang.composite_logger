@@ -17,7 +17,9 @@ type CompositeLogger struct {
 func Init(settings ...LoggerSetting) {
 	loggers := make([]ports.Logger, 0, len(settings))
 	for _, s := range settings {
-		loggers = append(loggers, s.InitLogger())
+		if s.IsEnabled() {
+			loggers = append(loggers, s.InitLogger())
+		}
 	}
 
 	instance = CompositeLogger{

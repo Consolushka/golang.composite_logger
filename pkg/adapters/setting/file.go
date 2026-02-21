@@ -12,6 +12,7 @@ import (
 )
 
 type FileSetting struct {
+	Enabled    bool
 	Path       string
 	LowerLevel compositelogger.Level
 }
@@ -40,4 +41,8 @@ func (f FileSetting) InitLogger() ports.Logger {
 	logrusInstance.SetOutput(mw)
 
 	return logger.NewFileLogger(logrusInstance)
+}
+
+func (f FileSetting) IsEnabled() bool {
+	return f.Enabled
 }
