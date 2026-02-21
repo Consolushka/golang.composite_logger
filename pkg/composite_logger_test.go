@@ -77,6 +77,7 @@ func TestInfo_FanOutAndPrefix(t *testing.T) {
 
 	ctx := map[string]interface{}{"requestId": "abc-123"}
 	Info("process started", ctx)
+	Stop()
 
 	require.Len(t, l1.infoCalls, 1)
 	require.Len(t, l2.infoCalls, 1)
@@ -92,6 +93,7 @@ func TestWarn_FanOutAndPrefix(t *testing.T) {
 
 	ctx := map[string]interface{}{"task": "poll"}
 	Warn("slow response", ctx)
+	Stop()
 
 	require.Len(t, l1.warnCalls, 1)
 	require.Len(t, l2.warnCalls, 1)
@@ -107,6 +109,7 @@ func TestError_AddsFallbackStackTraceAndDoesNotMutateInputContext(t *testing.T) 
 
 	inputCtx := map[string]interface{}{"error": errors.New("plain error"), "taskType": "poll"}
 	Error("failed", inputCtx)
+	Stop()
 
 	require.Len(t, l1.errorCalls, 1)
 	require.Len(t, l2.errorCalls, 1)
@@ -126,6 +129,7 @@ func TestFatal_FanOutAndPrefix(t *testing.T) {
 
 	ctx := map[string]interface{}{"service": "scheduler"}
 	Fatal("critical failure", ctx)
+	Stop()
 
 	require.Len(t, l1.fatalCalls, 1)
 	require.Len(t, l2.fatalCalls, 1)
@@ -142,6 +146,7 @@ func TestRecover_LogsPanicAsFatal(t *testing.T) {
 		defer Recover(map[string]interface{}{"component": "test"})
 		panic("something went wrong")
 	}()
+	Stop()
 
 	require.Len(t, l.fatalCalls, 1)
 	assert.Equal(t, "[FATAL] Panic recovered", l.fatalCalls[0].message)
@@ -158,6 +163,7 @@ func TestError_UsesExistingStackTraceFromContext(t *testing.T) {
 		"error":      errors.New("plain"),
 		"stackTrace": "precomputed-stack",
 	})
+	Stop()
 
 	require.Len(t, l.errorCalls, 1)
 	assert.Equal(t, "precomputed-stack", l.errorCalls[0].context["stackTrace"])
@@ -173,6 +179,7 @@ func TestError_UsesEmbeddedStackTraceFromError(t *testing.T) {
 			stack:   "embedded-stack-line-1\nembedded-stack-line-2",
 		},
 	})
+	Stop()
 
 	require.Len(t, l.errorCalls, 1)
 	assert.Equal(t, "embedded-stack-line-1\nembedded-stack-line-2", l.errorCalls[0].context["stackTrace"])
@@ -185,6 +192,7 @@ func TestInit_Empty(t *testing.T) {
 		Info("test", nil)
 		Error("test error", nil)
 	})
+	Stop()
 }
 
 func TestRecover_NilContext(t *testing.T) {
@@ -195,6 +203,7 @@ func TestRecover_NilContext(t *testing.T) {
 		defer Recover(nil)
 		panic("panic with nil ctx")
 	})
+	Stop()
 
 	require.Len(t, l.fatalCalls, 1)
 	assert.Equal(t, "[FATAL] Panic recovered", l.fatalCalls[0].message)
@@ -205,10 +214,40 @@ func TestError_WorksWithNilContext(t *testing.T) {
 	Init(testSetting{l})
 
 	Error("failed", nil)
+	Stop()
 
 	require.Len(t, l.errorCalls, 1)
 	assert.Equal(t, "[ERROR] failed", l.errorCalls[0].message)
 	assert.Contains(t, l.errorCalls[0].context, "stackTrace")
+}
+
+func TestInit_Reinitialization(t *testing.T) {
+	l1 := &fakeLogger{}
+	Init(testSetting{l1})
+	Info("first", nil)
+
+	l2 := &fakeLogger{}
+	// Re-initializing should flush and close l1's worker before starting instance with l2
+	Init(testSetting{l2})
+	Info("second", nil)
+	Stop()
+
+	assert.Len(t, l1.infoCalls, 1)
+	assert.Equal(t, "[INFO] first", l1.infoCalls[0].message)
+	assert.Len(t, l2.infoCalls, 1)
+	assert.Equal(t, "[INFO] second", l2.infoCalls[0].message)
+}
+
+func TestLogging_BeforeInitOrAfterStop(t *testing.T) {
+	// Ensure instance is nil
+	Stop()
+
+	assert.NotPanics(t, func() {
+		Info("should not panic", nil)
+		Warn("should not panic", nil)
+		Error("should not panic", nil)
+		Fatal("should not panic", nil)
+	})
 }
 
 func TestBuildErrorContextWithStackTrace_UsesFallbackWhenNoEmbeddedStack(t *testing.T) {
