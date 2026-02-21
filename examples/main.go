@@ -11,19 +11,25 @@ func main() {
 	// 1. Initialize the logger with multiple adapters
 	composite_logger.Init(
 		setting.ConsoleSetting{
+			Enabled:    true,
 			LowerLevel: composite_logger.InfoLevel,
 		},
 		setting.FileSetting{
+			Enabled:    true,
 			Path:       "logs/app.log",
 			LowerLevel: composite_logger.WarningLevel,
 		},
 		// You can also add Telegram if you have a bot key
-		// setting.TelegramSetting{
-		//     BotKey:     "YOUR_BOT_KEY",
-		//     ChatId:     12345678,
-		//     LowerLevel: composite_logger.ErrorLevel,
-		// },
+		//setting.TelegramSetting{
+		//	Enabled:    true,
+		//	BotKey:     "YOUR_BOT_KEY",
+		//	ChatId:     12345678,
+		//	LowerLevel: composite_logger.ErrorLevel,
+		//},
 	)
+
+	// Ensure all logs are flushed before exit
+	defer composite_logger.Stop()
 
 	// 2. Simple logging
 	composite_logger.Info("Application started", map[string]interface{}{
@@ -45,7 +51,7 @@ func main() {
 	})
 
 	// This will be caught by Recover and logged as Fatal
-	// panic("something unexpected happened")
+	//panic("something unexpected happened")
 }
 
 func someFunctionThatFails() error {
