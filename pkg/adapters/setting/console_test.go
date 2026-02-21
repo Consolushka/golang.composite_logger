@@ -8,6 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestConsoleSetting_IsEnabled(t *testing.T) {
+	assert.True(t, ConsoleSetting{Enabled: true}.IsEnabled())
+	assert.False(t, ConsoleSetting{Enabled: false}.IsEnabled())
+}
+
 func TestConsoleSetting_InitLogger(t *testing.T) {
 	s := ConsoleSetting{
 		LowerLevel: composite_logger.InfoLevel,

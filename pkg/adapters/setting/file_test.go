@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestFileSetting_IsEnabled(t *testing.T) {
+	assert.True(t, FileSetting{Enabled: true}.IsEnabled())
+	assert.False(t, FileSetting{Enabled: false}.IsEnabled())
+}
+
 func TestFileSetting_InitLogger(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "test.log")

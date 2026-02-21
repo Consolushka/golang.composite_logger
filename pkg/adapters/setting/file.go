@@ -30,13 +30,12 @@ func (f FileSetting) InitLogger() ports.Logger {
 		logrusInstance.Fatalf("Failed to create logrusInstance directory: %v", err)
 	}
 
-	// Открываем файл для записи логов
+	// Keep opened to write logs into it
 	logFile, err := os.OpenFile(f.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		logrusInstance.Fatalf("Failed to open logrusInstance file: %v", err)
 	}
 
-	// Настраиваем вывод в файл и консоль
 	mw := io.MultiWriter(os.Stdout, logFile)
 	logrusInstance.SetOutput(mw)
 
