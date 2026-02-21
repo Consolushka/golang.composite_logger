@@ -12,7 +12,7 @@ type TelegramSetting struct {
 	BotKey               string
 	ChatId               int64
 	LowerLevel           compositelogger.Level
-	UseLevelTitleWrapper bool
+	UseLevelTitleWrapper *bool
 	LevelWrappers        map[compositelogger.Level]string
 	LevelTitles          map[compositelogger.Level]string
 }
@@ -25,13 +25,18 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 		panic("Error creating telegram bot api. Error: " + err.Error())
 	}
 
+	useLevelTitleWrapper := true
+	if t.UseLevelTitleWrapper != nil {
+		useLevelTitleWrapper = *t.UseLevelTitleWrapper
+	}
+
 	finalWrappers := make(map[compositelogger.Level]string)
-	if t.UseLevelTitleWrapper {
-		// Сначала заполняем дефолтными
+	if useLevelTitleWrapper {
+		// First, fill with default wrappers
 		for level, wrapper := range compositelogger.DefaultLevelWrappers {
 			finalWrappers[level] = wrapper
 		}
-		// Перекрываем пользовательскими
+		// Then override with user-defined wrappers
 		for level, wrapper := range t.LevelWrappers {
 			if wrapper != "" {
 				finalWrappers[level] = wrapper
@@ -43,7 +48,7 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 		BotApi:               botApi,
 		LogChatId:            t.ChatId,
 		Level:                t.LowerLevel,
-		UseLevelTitleWrapper: t.UseLevelTitleWrapper,
+		UseLevelTitleWrapper: useLevelTitleWrapper,
 		LevelWrappers:        finalWrappers,
 		LevelTitles:          t.LevelTitles,
 	}
