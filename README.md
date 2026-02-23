@@ -100,6 +100,15 @@ func someDangerousOperation() {
 }
 ```
 
+## Examples
+
+The [examples/](./examples) directory contains a structured set of lessons to help you get started:
+
+- **Console**: [Text format](./examples/console/01-text), [JSON format](./examples/console/02-json)
+- **File**: [Text format](./examples/file/01-text), [JSON format](./examples/file/02-json)
+- **Telegram**: [Basic](./examples/telegram/01-basic), [Decorations](./examples/telegram/02-no-wrappers), [Custom Emojis](./examples/telegram/03-custom-wrappers), [Custom Titles](./examples/telegram/04-custom-titles), [Timeouts](./examples/telegram/05-timeout)
+- **Advanced**: [Composite usage](./examples/composite), [Custom Adapter implementation](./examples/custom-adapter)
+
 ## Project Structure
 
 - `pkg/`: Public API and core types.
