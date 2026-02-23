@@ -12,9 +12,10 @@ import (
 )
 
 type FileSetting struct {
-	Enabled    bool
-	Path       string
-	LowerLevel compositelogger.Level
+	Enabled         bool
+	IsJsonFormatter *bool
+	Path            string
+	LowerLevel      compositelogger.Level
 }
 
 func (f FileSetting) InitLogger() ports.Logger {
@@ -24,6 +25,15 @@ func (f FileSetting) InitLogger() ports.Logger {
 
 	logrusInstance := logrus.New()
 	logrusInstance.SetLevel(f.LowerLevel.ToLogrus())
+
+	isJsonFormatter := true
+	if f.IsJsonFormatter != nil {
+		isJsonFormatter = *f.IsJsonFormatter
+	}
+
+	if isJsonFormatter {
+		logrusInstance.SetFormatter(&logrus.JSONFormatter{})
+	}
 
 	logDir := filepath.Dir(f.Path)
 	if err := os.MkdirAll(logDir, 0755); err != nil {
