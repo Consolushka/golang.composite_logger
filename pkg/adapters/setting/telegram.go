@@ -1,6 +1,9 @@
 package setting
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/Consolushka/golang.composite_logger/internal/adapters/logger"
 	compositelogger "github.com/Consolushka/golang.composite_logger/pkg"
 	"github.com/Consolushka/golang.composite_logger/pkg/ports"
@@ -11,6 +14,7 @@ type TelegramSetting struct {
 	Enabled              bool
 	BotKey               string
 	ChatId               int64
+	Timeout              time.Duration
 	LowerLevel           compositelogger.Level
 	UseLevelTitleWrapper *bool
 	LevelWrappers        map[compositelogger.Level]string
@@ -23,6 +27,12 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 	botApi, err := botAPIConstructor(t.BotKey)
 	if err != nil {
 		panic("Error creating telegram bot api. Error: " + err.Error())
+	}
+
+	if t.Timeout > 0 {
+		botApi.Client = &http.Client{
+			Timeout: t.Timeout,
+		}
 	}
 
 	useLevelTitleWrapper := true
