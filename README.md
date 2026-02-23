@@ -4,10 +4,10 @@ A flexible, multi-destination logging library for Go, built with **Hexagonal Arc
 
 ## Features
 
-- 🚀 **Multi-destination**: Log to multiple sinks at once.
-- 🏗 **Clean Architecture**: Decoupled core logic from specific implementations.
-- 📄 **Structured Logging**: Powered by [Logrus](https://github.com/sirupsen/logrus).
-- 🤖 **Telegram Integration**: Send formatted alerts to Telegram with custom emojis and titles.
+- 🚀 **Asynchronous Engine**: Non-blocking logging using a background worker and buffered channels.
+- 🏗 **Clean Architecture**: Decoupled core logic from specific implementations using Ports & Adapters.
+- 📄 **Structured Logging**: Powered by [Logrus](https://github.com/sirupsen/logrus) with JSON and Text support.
+- 🤖 **Telegram Integration**: Send formatted alerts to Telegram with custom emojis, titles, and configurable timeouts.
 - 🔍 **Auto Stack Traces**: Automatically captures and cleans stack traces for `Error` and `Fatal` levels.
 - 🛡 **Panic Recovery**: Catch and log panics as Fatal errors.
 
@@ -31,13 +31,18 @@ func main() {
 	// Initialize with Console and File loggers
 	composite_logger.Init(
 		setting.ConsoleSetting{
+			Enabled:    true,
 			LowerLevel: composite_logger.InfoLevel,
 		},
 		setting.FileSetting{
+			Enabled:    true,
 			Path:       "logs/app.log",
 			LowerLevel: composite_logger.WarningLevel,
 		},
 	)
+
+	// ALWAYS call Stop() at the end to flush the async queue
+	defer composite_logger.Stop()
 
 	composite_logger.Info("Hello, World!", map[string]interface{}{
 		"user_id": 42,
@@ -47,17 +52,28 @@ func main() {
 
 ## Advanced Configuration
 
-### Telegram Adapter
+### JSON Formatting
+Both Console and File adapters support JSON formatting (enabled by default).
 
-The Telegram adapter is highly customizable, allowing you to wrap level names in emojis or symbols.
+```go
+setting.ConsoleSetting{
+    Enabled:         true,
+    IsJsonFormatter: &[]bool{false}[0], // Explicitly disable JSON to use Text
+}
+```
+
+### Telegram Adapter
+Highly customizable with timeouts and level decorators.
 
 ```go
 composite_logger.Init(
     setting.TelegramSetting{
+        Enabled:              true,
         BotKey:               "YOUR_BOT_TOKEN",
         ChatId:               12345678,
+        Timeout:              10 * time.Second, // Network timeout
         LowerLevel:           composite_logger.ErrorLevel,
-        UseLevelTitleWrapper: true,
+        UseLevelTitleWrapper: &[]bool{true}[0],
         // Optional: override default emojis (ℹ️ℹ️, 🚨🚨, etc.)
         LevelWrappers: map[composite_logger.Level]string{
             composite_logger.FatalLevel: "💀",
