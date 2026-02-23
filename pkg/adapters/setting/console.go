@@ -8,13 +8,23 @@ import (
 )
 
 type ConsoleSetting struct {
-	Enabled    bool
-	LowerLevel compositelogger.Level
+	Enabled         bool
+	IsJsonFormatter *bool
+	LowerLevel      compositelogger.Level
 }
 
 func (s ConsoleSetting) InitLogger() ports.Logger {
 	logrusInstance := logrus.New()
 	logrusInstance.SetLevel(s.LowerLevel.ToLogrus())
+
+	isJsonFormatter := true
+	if s.IsJsonFormatter != nil {
+		isJsonFormatter = *s.IsJsonFormatter
+	}
+
+	if isJsonFormatter {
+		logrusInstance.SetFormatter(&logrus.JSONFormatter{})
+	}
 
 	return logger.NewConsoleLogger(logrusInstance)
 }
