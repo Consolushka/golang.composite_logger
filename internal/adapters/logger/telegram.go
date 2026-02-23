@@ -47,7 +47,16 @@ func (t TelegramLogger) send(message string, context map[string]interface{}, lev
 	tgMessage := tgbotapi.NewMessage(t.LogChatId, text)
 	tgMessage.ParseMode = "MarkdownV2"
 
-	_, _ = t.BotApi.Send(tgMessage)
+	if _, err := t.BotApi.Send(tgMessage); err != nil {
+		fmt.Printf("[TelegramLogger Error] Failed to send detailed log to ChatID %d: %v\n", t.LogChatId, err)
+
+		// Fallback: send simple plain text message without Markdown
+		fallbackText := fmt.Sprintf("⚠️ [TelegramLogger Error]\nFailed to send detailed log.\nError: %v\nMessage: %s", err, message)
+		fallbackMsg := tgbotapi.NewMessage(t.LogChatId, fallbackText)
+		if _, fallbackErr := t.BotApi.Send(fallbackMsg); fallbackErr != nil {
+			fmt.Printf("[TelegramLogger Error] Failed to send fallback message to ChatID %d: %v\n", t.LogChatId, fallbackErr)
+		}
+	}
 }
 
 func formatTelegramMarkdown(message string, context map[string]interface{}, level composite_logger.Level, t TelegramLogger) string {
