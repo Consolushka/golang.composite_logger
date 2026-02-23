@@ -8,6 +8,7 @@ A flexible, multi-destination logging library for Go, built with **Hexagonal Arc
 - 🏗 **Clean Architecture**: Decoupled core logic from specific implementations using Ports & Adapters.
 - 📄 **Structured Logging**: Powered by [Logrus](https://github.com/sirupsen/logrus) with JSON and Text support.
 - 🤖 **Telegram Integration**: Send formatted alerts to Telegram with custom emojis, titles, and configurable timeouts.
+- 📦 **Log Rotation**: Built-in log rotation for file adapter using [Lumberjack](https://github.com/natefinch/lumberjack).
 - 🔍 **Auto Stack Traces**: Automatically captures and cleans stack traces for `Error` and `Fatal` levels.
 - 🛡 **Panic Recovery**: Catch and log panics as Fatal errors.
 
@@ -105,7 +106,7 @@ func someDangerousOperation() {
 The [examples/](./examples) directory contains a structured set of lessons to help you get started:
 
 - **Console**: [Text format](./examples/console/01-text), [JSON format](./examples/console/02-json)
-- **File**: [Text format](./examples/file/01-text), [JSON format](./examples/file/02-json)
+- **File**: [Text format](./examples/file/01-text), [JSON format](./examples/file/02-json), [Rotation](./examples/file/03-rotation)
 - **Telegram**: [Basic](./examples/telegram/01-basic), [Decorations](./examples/telegram/02-no-wrappers), [Custom Emojis](./examples/telegram/03-custom-wrappers), [Custom Titles](./examples/telegram/04-custom-titles), [Timeouts](./examples/telegram/05-timeout)
 - **Advanced**: [Composite usage](./examples/composite), [Custom Adapter implementation](./examples/custom-adapter)
 

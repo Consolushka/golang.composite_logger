@@ -68,6 +68,10 @@ Writes to a file and standard output using Logrus.
     - `Enabled`: (bool)
     - `IsJsonFormatter`: (*bool) Default is true.
     - `Path`: string
+    - `MaxSize`: (int) Maximum size in megabytes before rotation (default: 5).
+    - `MaxBackups`: (int) Maximum number of old log files to retain (default: 3).
+    - `MaxAge`: (int) Maximum number of days to retain old log files (default: 28).
+    - `Compress`: (bool) Whether to compress old log files (default: true).
     - `LowerLevel`: `composite_logger.Level`
 
 ### Telegram
