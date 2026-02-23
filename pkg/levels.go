@@ -7,15 +7,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Level represents the severity of a log message.
 type Level int
 
 const (
-	InfoLevel    Level = 1
+	// InfoLevel is used for informational messages that highlight the progress of the application.
+	InfoLevel Level = 1
+	// WarningLevel is used for potentially harmful situations or important notices.
 	WarningLevel Level = 2
-	ErrorLevel   Level = 3
-	FatalLevel   Level = 4
+	// ErrorLevel is used for error events that might still allow the application to continue running.
+	ErrorLevel Level = 3
+	// FatalLevel is used for very severe error events that will presumably lead the application to abort.
+	FatalLevel Level = 4
 )
 
+// DefaultLevelWrappers provides a default set of emoji wrappers for each log level,
+// commonly used by the Telegram adapter.
 var DefaultLevelWrappers = map[Level]string{
 	InfoLevel:    "ℹ️ℹ️",
 	WarningLevel: "⚠️⚠️",
@@ -23,6 +30,7 @@ var DefaultLevelWrappers = map[Level]string{
 	FatalLevel:   "🚨🚨",
 }
 
+// String returns the lower-case string representation of the log level.
 func (l Level) String() string {
 	switch l {
 	case InfoLevel:
@@ -38,6 +46,7 @@ func (l Level) String() string {
 	}
 }
 
+// ToLogrus converts the internal Level to a logrus.Level.
 func (l Level) ToLogrus() logrus.Level {
 	switch l {
 	case InfoLevel:
@@ -53,6 +62,8 @@ func (l Level) ToLogrus() logrus.Level {
 	}
 }
 
+// ParseLevel parses a string into a Level.
+// It returns an error if the string does not match any known log level.
 func ParseLevel(lvl string) (Level, error) {
 	switch strings.ToLower(lvl) {
 	case "info":

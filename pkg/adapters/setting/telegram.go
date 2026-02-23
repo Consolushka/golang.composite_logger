@@ -10,19 +10,29 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+// TelegramSetting provides configuration for the Telegram logging adapter.
 type TelegramSetting struct {
+	// Enabled toggles the telegram logger on or off.
 	Enabled              bool
+	// BotKey is the Telegram bot API token.
 	BotKey               string
+	// ChatId is the unique identifier for the target chat or user.
 	ChatId               int64
+	// Timeout sets the HTTP client timeout for API requests.
 	Timeout              time.Duration
+	// LowerLevel sets the minimum severity level to log.
 	LowerLevel           compositelogger.Level
+	// UseLevelTitleWrapper enables emoji/symbol decoration around log levels if true (default: true).
 	UseLevelTitleWrapper *bool
+	// LevelWrappers allows overriding default emojis for specific levels.
 	LevelWrappers        map[compositelogger.Level]string
+	// LevelTitles allows overriding default display names for log levels.
 	LevelTitles          map[compositelogger.Level]string
 }
 
 var botAPIConstructor = tgbotapi.NewBotAPI
 
+// InitLogger initializes a Telegram-based logger with MarkdownV2 support.
 func (t TelegramSetting) InitLogger() ports.Logger {
 	botApi, err := botAPIConstructor(t.BotKey)
 	if err != nil {
@@ -64,6 +74,7 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 	}
 }
 
+// IsEnabled returns the current active status of the adapter.
 func (t TelegramSetting) IsEnabled() bool {
 	return t.Enabled
 }
