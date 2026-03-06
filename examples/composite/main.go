@@ -8,6 +8,9 @@ import (
 )
 
 func main() {
+	// TIP: Always call composite_logger.Stop() with defer at the beginning of your application to ensure all asynchronously queued logs are flushed before the process exits.
+	defer composite_logger.Stop()
+
 	// Initialize Composite Logger with multiple destinations
 	composite_logger.Init(
 		// 1. Console with JSON (default)
@@ -26,12 +29,11 @@ func main() {
 		setting.TelegramSetting{
 			Enabled:    true,
 			BotKey:     "YOUR_BOT_TOKEN",
-			ChatId:     0,
+			ChatId:     12345678,
 			Timeout:    10 * time.Second,
 			LowerLevel: composite_logger.ErrorLevel,
 		},
 	)
-	defer composite_logger.Stop()
 
 	// This goes only to Console
 	composite_logger.Info("Normal operation", nil)
