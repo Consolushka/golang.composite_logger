@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Consolushka/golang.composite_logger/pkg"
@@ -12,23 +13,35 @@ type MyCustomLogger struct {
 }
 
 func (m MyCustomLogger) Info(msg string, ctx map[string]interface{}) {
-	fmt.Printf("%s [INFO] %s | Context: %v
-", m.Prefix, msg, ctx)
+	fmt.Printf("%s [INFO] %s | Context: %v\n", m.Prefix, msg, ctx)
+}
+
+func (m MyCustomLogger) InfoContext(ctx context.Context, msg string, fields map[string]interface{}) {
+	fmt.Printf("%s [INFO] %s | Context: %v | Fields: %v\n", m.Prefix, msg, ctx, fields)
 }
 
 func (m MyCustomLogger) Warn(msg string, ctx map[string]interface{}) {
-	fmt.Printf("%s [WARN] %s
-", m.Prefix, msg)
+	fmt.Printf("%s [WARN] %s\n", m.Prefix, msg)
+}
+
+func (m MyCustomLogger) WarnContext(ctx context.Context, msg string, fields map[string]interface{}) {
+	fmt.Printf("%s [WARN] %s | Fields: %v\n", m.Prefix, msg, fields)
 }
 
 func (m MyCustomLogger) Error(msg string, ctx map[string]interface{}) {
-	fmt.Printf("%s [ERROR] %s
-", m.Prefix, msg)
+	fmt.Printf("%s [ERROR] %s\n", m.Prefix, msg)
+}
+
+func (m MyCustomLogger) ErrorContext(ctx context.Context, msg string, fields map[string]interface{}) {
+	fmt.Printf("%s [ERROR] %s | Fields: %v\n", m.Prefix, msg, fields)
 }
 
 func (m MyCustomLogger) Fatal(msg string, ctx map[string]interface{}) {
-	fmt.Printf("%s [FATAL] %s
-", m.Prefix, msg)
+	fmt.Printf("%s [FATAL] %s\n", m.Prefix, msg)
+}
+
+func (m MyCustomLogger) FatalContext(ctx context.Context, msg string, fields map[string]interface{}) {
+	fmt.Printf("%s [FATAL] %s | Fields: %v\n", m.Prefix, msg, fields)
 }
 
 // 2. Define your setting that implements ports.LoggerSetting interface

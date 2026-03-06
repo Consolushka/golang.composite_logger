@@ -1,6 +1,7 @@
 package composite_logger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -45,6 +46,7 @@ func (s stackAwareError) Format(state fmt.State, verb rune) {
 type logCall struct {
 	message string
 	context map[string]interface{}
+	ctx     context.Context
 }
 
 type fakeLogger struct {
@@ -58,16 +60,32 @@ func (f *fakeLogger) Info(message string, context map[string]interface{}) {
 	f.infoCalls = append(f.infoCalls, logCall{message: message, context: context})
 }
 
+func (f *fakeLogger) InfoContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.infoCalls = append(f.infoCalls, logCall{message: message, context: fields, ctx: ctx})
+}
+
 func (f *fakeLogger) Warn(message string, context map[string]interface{}) {
 	f.warnCalls = append(f.warnCalls, logCall{message: message, context: context})
+}
+
+func (f *fakeLogger) WarnContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.warnCalls = append(f.warnCalls, logCall{message: message, context: fields, ctx: ctx})
 }
 
 func (f *fakeLogger) Error(message string, context map[string]interface{}) {
 	f.errorCalls = append(f.errorCalls, logCall{message: message, context: context})
 }
 
+func (f *fakeLogger) ErrorContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.errorCalls = append(f.errorCalls, logCall{message: message, context: fields, ctx: ctx})
+}
+
 func (f *fakeLogger) Fatal(message string, context map[string]interface{}) {
 	f.fatalCalls = append(f.fatalCalls, logCall{message: message, context: context})
+}
+
+func (f *fakeLogger) FatalContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.fatalCalls = append(f.fatalCalls, logCall{message: message, context: fields, ctx: ctx})
 }
 
 func TestInfo_FanOutAndPrefix(t *testing.T) {
@@ -83,6 +101,24 @@ func TestInfo_FanOutAndPrefix(t *testing.T) {
 	require.Len(t, l2.infoCalls, 1)
 	assert.Equal(t, "[INFO] process started", l1.infoCalls[0].message)
 	assert.Equal(t, "[INFO] process started", l2.infoCalls[0].message)
+	assert.Equal(t, "abc-123", l1.infoCalls[0].context["requestId"])
+}
+
+func TestInfoContext_FanOutAndPrefix(t *testing.T) {
+	l1 := &fakeLogger{}
+	l2 := &fakeLogger{}
+	Init(testSetting{l1}, testSetting{l2})
+
+	type contextKey string
+	ctx := context.WithValue(context.Background(), contextKey("traceId"), "trace-abc-123")
+	fields := map[string]interface{}{"requestId": "abc-123"}
+	InfoContext(ctx, "process started", fields)
+	Stop()
+
+	require.Len(t, l1.infoCalls, 1)
+	require.Len(t, l2.infoCalls, 1)
+	assert.Equal(t, "[INFO] process started", l1.infoCalls[0].message)
+	assert.Equal(t, ctx, l1.infoCalls[0].ctx)
 	assert.Equal(t, "abc-123", l1.infoCalls[0].context["requestId"])
 }
 
