@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -22,23 +23,43 @@ type TelegramLogger struct {
 }
 
 func (t TelegramLogger) Info(message string, context map[string]interface{}) {
-	t.send(message, context, composite_logger.InfoLevel)
+	t.send(nil, message, context, composite_logger.InfoLevel)
+}
+
+func (t TelegramLogger) InfoContext(ctx context.Context, message string, fields map[string]interface{}) {
+	t.send(ctx, message, fields, composite_logger.InfoLevel)
 }
 
 func (t TelegramLogger) Warn(message string, context map[string]interface{}) {
-	t.send(message, context, composite_logger.WarningLevel)
+	t.send(nil, message, context, composite_logger.WarningLevel)
+}
+
+func (t TelegramLogger) WarnContext(ctx context.Context, message string, fields map[string]interface{}) {
+	t.send(ctx, message, fields, composite_logger.WarningLevel)
 }
 
 func (t TelegramLogger) Error(message string, context map[string]interface{}) {
-	t.send(message, context, composite_logger.ErrorLevel)
+	t.send(nil, message, context, composite_logger.ErrorLevel)
+}
+
+func (t TelegramLogger) ErrorContext(ctx context.Context, message string, fields map[string]interface{}) {
+	t.send(ctx, message, fields, composite_logger.ErrorLevel)
 }
 
 func (t TelegramLogger) Fatal(message string, context map[string]interface{}) {
-	t.send(message, context, composite_logger.FatalLevel)
+	t.send(nil, message, context, composite_logger.FatalLevel)
 }
 
-func (t TelegramLogger) send(message string, context map[string]interface{}, level composite_logger.Level) {
+func (t TelegramLogger) FatalContext(ctx context.Context, message string, fields map[string]interface{}) {
+	t.send(ctx, message, fields, composite_logger.FatalLevel)
+}
+
+func (t TelegramLogger) send(ctx context.Context, message string, context map[string]interface{}, level composite_logger.Level) {
 	if t.Level > level {
+		return
+	}
+
+	if ctx != nil && ctx.Err() != nil {
 		return
 	}
 
