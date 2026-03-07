@@ -6,30 +6,30 @@ import (
 	"strings"
 )
 
-func BuildErrorContextWithStackTrace(ctx map[string]interface{}) map[string]interface{} {
-	context := CloneContext(ctx)
+func BuildErrorContextWithStackTrace(fields map[string]interface{}) map[string]interface{} {
+	clonedFields := CloneContext(fields)
 
-	if _, exists := context["stackTrace"]; exists {
-		return context
+	if _, exists := clonedFields["stackTrace"]; exists {
+		return clonedFields
 	}
 
-	stackTrace := ExtractStackTraceFromError(context["error"])
+	stackTrace := ExtractStackTraceFromError(clonedFields["error"])
 	if stackTrace == "" {
 		stackTrace = BuildFallbackStackTrace()
 	}
 
-	context["stackTrace"] = stackTrace
+	clonedFields["stackTrace"] = stackTrace
 
-	return context
+	return clonedFields
 }
 
-func CloneContext(ctx map[string]interface{}) map[string]interface{} {
-	if ctx == nil {
+func CloneContext(fields map[string]interface{}) map[string]interface{} {
+	if fields == nil {
 		return map[string]interface{}{}
 	}
 
-	cloned := make(map[string]interface{}, len(ctx))
-	for key, value := range ctx {
+	cloned := make(map[string]interface{}, len(fields))
+	for key, value := range fields {
 		cloned[key] = value
 	}
 

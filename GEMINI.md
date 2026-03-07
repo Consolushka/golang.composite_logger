@@ -2,6 +2,12 @@
 
 A flexible Go logging library implementing the composite pattern and hexagonal architecture to broadcast logs across multiple destinations.
 
+## Engineering Standards
+
+- **GoDoc Documentation**: All public symbols (types, interfaces, functions, methods) in the `pkg/` directory MUST have comprehensive GoDoc-compliant comments. Documentation should include usage examples where appropriate and explain the purpose and parameters of each symbol.
+- **Ports & Adapters**: Keep the core logic in `pkg/` and `internal/` decoupled from specific implementations. Use `pkg/ports/` for defining contracts.
+- **Context Support**: Always provide `*Context` variants for logging functions to support tracing and cancellation.
+
 ## Project Overview
 
 - **Purpose**: Unified logging interface with pluggable adapters.

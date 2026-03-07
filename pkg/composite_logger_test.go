@@ -1,6 +1,7 @@
 package composite_logger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -44,7 +45,8 @@ func (s stackAwareError) Format(state fmt.State, verb rune) {
 
 type logCall struct {
 	message string
-	context map[string]interface{}
+	fields  map[string]interface{}
+	ctx     context.Context
 }
 
 type fakeLogger struct {
@@ -54,20 +56,36 @@ type fakeLogger struct {
 	fatalCalls []logCall
 }
 
-func (f *fakeLogger) Info(message string, context map[string]interface{}) {
-	f.infoCalls = append(f.infoCalls, logCall{message: message, context: context})
+func (f *fakeLogger) Info(message string, fields map[string]interface{}) {
+	f.infoCalls = append(f.infoCalls, logCall{message: message, fields: fields})
 }
 
-func (f *fakeLogger) Warn(message string, context map[string]interface{}) {
-	f.warnCalls = append(f.warnCalls, logCall{message: message, context: context})
+func (f *fakeLogger) InfoContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.infoCalls = append(f.infoCalls, logCall{message: message, fields: fields, ctx: ctx})
 }
 
-func (f *fakeLogger) Error(message string, context map[string]interface{}) {
-	f.errorCalls = append(f.errorCalls, logCall{message: message, context: context})
+func (f *fakeLogger) Warn(message string, fields map[string]interface{}) {
+	f.warnCalls = append(f.warnCalls, logCall{message: message, fields: fields})
 }
 
-func (f *fakeLogger) Fatal(message string, context map[string]interface{}) {
-	f.fatalCalls = append(f.fatalCalls, logCall{message: message, context: context})
+func (f *fakeLogger) WarnContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.warnCalls = append(f.warnCalls, logCall{message: message, fields: fields, ctx: ctx})
+}
+
+func (f *fakeLogger) Error(message string, fields map[string]interface{}) {
+	f.errorCalls = append(f.errorCalls, logCall{message: message, fields: fields})
+}
+
+func (f *fakeLogger) ErrorContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.errorCalls = append(f.errorCalls, logCall{message: message, fields: fields, ctx: ctx})
+}
+
+func (f *fakeLogger) Fatal(message string, fields map[string]interface{}) {
+	f.fatalCalls = append(f.fatalCalls, logCall{message: message, fields: fields})
+}
+
+func (f *fakeLogger) FatalContext(ctx context.Context, message string, fields map[string]interface{}) {
+	f.fatalCalls = append(f.fatalCalls, logCall{message: message, fields: fields, ctx: ctx})
 }
 
 func TestInfo_FanOutAndPrefix(t *testing.T) {
@@ -75,15 +93,71 @@ func TestInfo_FanOutAndPrefix(t *testing.T) {
 	l2 := &fakeLogger{}
 	Init(testSetting{l1}, testSetting{l2})
 
-	ctx := map[string]interface{}{"requestId": "abc-123"}
-	Info("process started", ctx)
+	fields := map[string]interface{}{"requestId": "abc-123"}
+	Info("process started", fields)
 	Stop()
 
 	require.Len(t, l1.infoCalls, 1)
 	require.Len(t, l2.infoCalls, 1)
 	assert.Equal(t, "[INFO] process started", l1.infoCalls[0].message)
 	assert.Equal(t, "[INFO] process started", l2.infoCalls[0].message)
-	assert.Equal(t, "abc-123", l1.infoCalls[0].context["requestId"])
+	assert.Equal(t, "abc-123", l1.infoCalls[0].fields["requestId"])
+}
+
+func TestInfoContext_FanOutAndPrefix(t *testing.T) {
+	l1 := &fakeLogger{}
+	l2 := &fakeLogger{}
+	Init(testSetting{l1}, testSetting{l2})
+
+	type contextKey string
+	ctx := context.WithValue(context.Background(), contextKey("traceId"), "trace-abc-123")
+	fields := map[string]interface{}{"requestId": "abc-123"}
+	InfoContext(ctx, "process started", fields)
+	Stop()
+
+	require.Len(t, l1.infoCalls, 1)
+	require.Len(t, l2.infoCalls, 1)
+	assert.Equal(t, "[INFO] process started", l1.infoCalls[0].message)
+	assert.Equal(t, ctx, l1.infoCalls[0].ctx)
+	assert.Equal(t, "abc-123", l1.infoCalls[0].fields["requestId"])
+}
+
+func TestWithContext_UsesBoundContext(t *testing.T) {
+	l := &fakeLogger{}
+	Init(testSetting{l})
+
+	type contextKey string
+	ctx := context.WithValue(context.Background(), contextKey("traceId"), "trace-with-context")
+
+	lc := WithContext(ctx)
+	lc.Info("bound log", map[string]interface{}{"foo": "bar"})
+	Stop()
+
+	require.Len(t, l.infoCalls, 1)
+	assert.Equal(t, ctx, l.infoCalls[0].ctx)
+	assert.Equal(t, "[INFO] bound log", l.infoCalls[0].message)
+	assert.Equal(t, "bar", l.infoCalls[0].fields["foo"])
+}
+
+func TestSetContextKeys_EnrichesLogs(t *testing.T) {
+	l := &fakeLogger{}
+	Init(testSetting{l})
+
+	type contextKey string
+	traceKey := contextKey("trace_id")
+	userKey := contextKey("user_id")
+
+	SetContextKeys(traceKey, userKey)
+
+	ctx := context.WithValue(context.Background(), traceKey, "abc-123")
+	ctx = context.WithValue(ctx, userKey, 42)
+
+	InfoContext(ctx, "enriched log", nil)
+	Stop()
+
+	require.Len(t, l.infoCalls, 1)
+	assert.Equal(t, "abc-123", l.infoCalls[0].fields["trace_id"])
+	assert.Equal(t, 42, l.infoCalls[0].fields["user_id"])
 }
 
 func TestWarn_FanOutAndPrefix(t *testing.T) {
@@ -91,15 +165,15 @@ func TestWarn_FanOutAndPrefix(t *testing.T) {
 	l2 := &fakeLogger{}
 	Init(testSetting{l1}, testSetting{l2})
 
-	ctx := map[string]interface{}{"task": "poll"}
-	Warn("slow response", ctx)
+	fields := map[string]interface{}{"task": "poll"}
+	Warn("slow response", fields)
 	Stop()
 
 	require.Len(t, l1.warnCalls, 1)
 	require.Len(t, l2.warnCalls, 1)
 	assert.Equal(t, "[WARNING] slow response", l1.warnCalls[0].message)
 	assert.Equal(t, "[WARNING] slow response", l2.warnCalls[0].message)
-	assert.Equal(t, "poll", l2.warnCalls[0].context["task"])
+	assert.Equal(t, "poll", l2.warnCalls[0].fields["task"])
 }
 
 func TestError_AddsFallbackStackTraceAndDoesNotMutateInputContext(t *testing.T) {
@@ -107,19 +181,19 @@ func TestError_AddsFallbackStackTraceAndDoesNotMutateInputContext(t *testing.T) 
 	l2 := &fakeLogger{}
 	Init(testSetting{l1}, testSetting{l2})
 
-	inputCtx := map[string]interface{}{"error": errors.New("plain error"), "taskType": "poll"}
-	Error("failed", inputCtx)
+	inputFields := map[string]interface{}{"error": errors.New("plain error"), "taskType": "poll"}
+	Error("failed", inputFields)
 	Stop()
 
 	require.Len(t, l1.errorCalls, 1)
 	require.Len(t, l2.errorCalls, 1)
 	assert.Equal(t, "[ERROR] failed", l1.errorCalls[0].message)
-	assert.Equal(t, "poll", l1.errorCalls[0].context["taskType"])
-	assert.Contains(t, l1.errorCalls[0].context, "stackTrace")
-	assert.NotEmpty(t, l1.errorCalls[0].context["stackTrace"])
+	assert.Equal(t, "poll", l1.errorCalls[0].fields["taskType"])
+	assert.Contains(t, l1.errorCalls[0].fields, "stackTrace")
+	assert.NotEmpty(t, l1.errorCalls[0].fields["stackTrace"])
 
-	_, hasStackInOriginal := inputCtx["stackTrace"]
-	assert.False(t, hasStackInOriginal, "original context must not be mutated")
+	_, hasStackInOriginal := inputFields["stackTrace"]
+	assert.False(t, hasStackInOriginal, "original fields must not be mutated")
 }
 
 func TestFatal_FanOutAndPrefix(t *testing.T) {
@@ -127,15 +201,15 @@ func TestFatal_FanOutAndPrefix(t *testing.T) {
 	l2 := &fakeLogger{}
 	Init(testSetting{l1}, testSetting{l2})
 
-	ctx := map[string]interface{}{"service": "scheduler"}
-	Fatal("critical failure", ctx)
+	fields := map[string]interface{}{"service": "scheduler"}
+	Fatal("critical failure", fields)
 	Stop()
 
 	require.Len(t, l1.fatalCalls, 1)
 	require.Len(t, l2.fatalCalls, 1)
 	assert.Equal(t, "[FATAL] critical failure", l1.fatalCalls[0].message)
-	assert.Equal(t, "scheduler", l1.fatalCalls[0].context["service"])
-	assert.Contains(t, l1.fatalCalls[0].context, "stackTrace")
+	assert.Equal(t, "scheduler", l1.fatalCalls[0].fields["service"])
+	assert.Contains(t, l1.fatalCalls[0].fields, "stackTrace")
 }
 
 func TestRecover_LogsPanicAsFatal(t *testing.T) {
@@ -150,9 +224,9 @@ func TestRecover_LogsPanicAsFatal(t *testing.T) {
 
 	require.Len(t, l.fatalCalls, 1)
 	assert.Equal(t, "[FATAL] Panic recovered", l.fatalCalls[0].message)
-	assert.Equal(t, "something went wrong", l.fatalCalls[0].context["panic"])
-	assert.Equal(t, "test", l.fatalCalls[0].context["ctx"].(map[string]interface{})["component"])
-	assert.Contains(t, l.fatalCalls[0].context, "stackTrace")
+	assert.Equal(t, "something went wrong", l.fatalCalls[0].fields["panic"])
+	assert.Equal(t, "test", l.fatalCalls[0].fields["fields"].(map[string]interface{})["component"])
+	assert.Contains(t, l.fatalCalls[0].fields, "stackTrace")
 }
 
 func TestError_UsesExistingStackTraceFromContext(t *testing.T) {
@@ -166,7 +240,7 @@ func TestError_UsesExistingStackTraceFromContext(t *testing.T) {
 	Stop()
 
 	require.Len(t, l.errorCalls, 1)
-	assert.Equal(t, "precomputed-stack", l.errorCalls[0].context["stackTrace"])
+	assert.Equal(t, "precomputed-stack", l.errorCalls[0].fields["stackTrace"])
 }
 
 func TestError_UsesEmbeddedStackTraceFromError(t *testing.T) {
@@ -182,7 +256,7 @@ func TestError_UsesEmbeddedStackTraceFromError(t *testing.T) {
 	Stop()
 
 	require.Len(t, l.errorCalls, 1)
-	assert.Equal(t, "embedded-stack-line-1\nembedded-stack-line-2", l.errorCalls[0].context["stackTrace"])
+	assert.Equal(t, "embedded-stack-line-1\nembedded-stack-line-2", l.errorCalls[0].fields["stackTrace"])
 }
 
 func TestInit_Empty(t *testing.T) {
@@ -201,7 +275,7 @@ func TestRecover_NilContext(t *testing.T) {
 
 	assert.NotPanics(t, func() {
 		defer Recover(nil)
-		panic("panic with nil ctx")
+		panic("panic with nil fields")
 	})
 	Stop()
 
@@ -218,7 +292,7 @@ func TestError_WorksWithNilContext(t *testing.T) {
 
 	require.Len(t, l.errorCalls, 1)
 	assert.Equal(t, "[ERROR] failed", l.errorCalls[0].message)
-	assert.Contains(t, l.errorCalls[0].context, "stackTrace")
+	assert.Contains(t, l.errorCalls[0].fields, "stackTrace")
 }
 
 func TestInit_Reinitialization(t *testing.T) {
@@ -251,36 +325,36 @@ func TestLogging_BeforeInitOrAfterStop(t *testing.T) {
 }
 
 func TestBuildErrorContextWithStackTrace_UsesFallbackWhenNoEmbeddedStack(t *testing.T) {
-	ctx := map[string]interface{}{
+	fields := map[string]interface{}{
 		"error": errors.New("plain error"),
 	}
 
-	result := internal.BuildErrorContextWithStackTrace(ctx)
+	result := internal.BuildErrorContextWithStackTrace(fields)
 
 	assert.NotEmpty(t, result["stackTrace"])
 	assert.Contains(t, result["stackTrace"], ".go:")
 }
 
 func TestBuildErrorContextWithStackTrace_UsesEmbeddedStackWhenPresent(t *testing.T) {
-	ctx := map[string]interface{}{
+	fields := map[string]interface{}{
 		"error": stackAwareError{
 			message: "wrapped error",
 			stack:   "embedded-stack-line-1\nembedded-stack-line-2",
 		},
 	}
 
-	result := internal.BuildErrorContextWithStackTrace(ctx)
+	result := internal.BuildErrorContextWithStackTrace(fields)
 
 	assert.Equal(t, "embedded-stack-line-1\nembedded-stack-line-2", result["stackTrace"])
 }
 
 func TestBuildErrorContextWithStackTrace_DoesNotOverrideExistingStack(t *testing.T) {
-	ctx := map[string]interface{}{
+	fields := map[string]interface{}{
 		"error":      errors.New("plain"),
 		"stackTrace": "precomputed-stack",
 	}
 
-	result := internal.BuildErrorContextWithStackTrace(ctx)
+	result := internal.BuildErrorContextWithStackTrace(fields)
 
 	assert.Equal(t, "precomputed-stack", result["stackTrace"])
 }
