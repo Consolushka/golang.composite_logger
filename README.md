@@ -118,7 +118,7 @@ The [examples/](./examples) directory contains a structured set of lessons to he
 - **Console**: [Text format](./examples/console/01-text), [JSON format](./examples/console/02-json), [Context support](./examples/console/03-context)
 - **File**: [Text format](./examples/file/01-text), [JSON format](./examples/file/02-json), [Rotation](./examples/file/03-rotation), [Context support](./examples/file/04-context)
 - **Telegram**: [Basic](./examples/telegram/01-basic), [Decorations](./examples/telegram/02-no-wrappers), [Custom Emojis](./examples/telegram/03-custom-wrappers), [Custom Titles](./examples/telegram/04-custom-titles), [Timeouts](./examples/telegram/05-timeout), [Context Cancellation](./examples/telegram/06-context)
-- **Advanced**: [Composite (Basic)](./examples/composite/01-basic), [Composite (Context methods)](./examples/composite/02-context-methods), [Composite (WithContext pattern)](./examples/composite/03-with-context), [Custom Adapter implementation](./examples/custom-adapter)
+- **Advanced**: [Composite (Basic)](./examples/composite/01-basic), [Composite (Context methods)](./examples/composite/02-context-methods), [Composite (WithContext pattern)](./examples/composite/03-with-context), [Composite (Context enrichment)](./examples/composite/04-context-enrichment), [Custom Adapter implementation](./examples/custom-adapter)
 
 ## Project Structure
 

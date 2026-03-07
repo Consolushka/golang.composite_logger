@@ -66,11 +66,11 @@ func (e *Entry) Fatal(msg string, fields map[string]interface{}) {
 // CompositeLogger manages a collection of loggers and handles asynchronous log dispatching.
 // It uses an internal channel for non-blocking log operations.
 type CompositeLogger struct {
-	loggers []ports.Logger
-	ch      chan logEntry
-	wg      sync.WaitGroup
+	loggers     []ports.Logger
+	ch          chan logEntry
+	wg          sync.WaitGroup
+	contextKeys []any
 }
-...
 
 // Init initializes the global logger instance with the provided settings.
 // This function must be called before any other logging operations.
@@ -108,11 +108,44 @@ func Init(settings ...LoggerSetting) {
 	go instance.listenAndBroadcast()
 }
 
+// SetContextKeys registers a list of context keys that the logger should automatically
+// extract from the provided context and add to the log fields.
+// This is useful for automatically including trace IDs, request IDs, etc.
+//
+// Usage:
+//
+//	composite_logger.SetContextKeys("trace_id", "request_id")
+func SetContextKeys(keys ...any) {
+	mu.Lock()
+	defer mu.Unlock()
+	if instance != nil {
+		instance.contextKeys = keys
+	}
+}
+
 // listenAndBroadcast is a background worker that processes the log queue
 // and sends entries to all registered adapters.
 func (cl *CompositeLogger) listenAndBroadcast() {
 	defer cl.wg.Done()
 	for entry := range cl.ch {
+		// Automatically enrich fields from context if keys are registered
+		if entry.ctx != nil && len(cl.contextKeys) > 0 {
+			if entry.context == nil {
+				entry.context = make(map[string]interface{})
+			}
+			for _, key := range cl.contextKeys {
+				if val := entry.ctx.Value(key); val != nil {
+					// Use string representation of the key as the field name if possible
+					if keyStr, ok := key.(string); ok {
+						// Only add if not already present in explicit fields
+						if _, exists := entry.context[keyStr]; !exists {
+							entry.context[keyStr] = val
+						}
+					}
+				}
+			}
+		}
+
 		for _, logger := range cl.loggers {
 			if entry.ctx != nil {
 				switch entry.level {

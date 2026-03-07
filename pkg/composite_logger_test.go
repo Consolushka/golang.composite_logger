@@ -139,6 +139,22 @@ func TestWithContext_UsesBoundContext(t *testing.T) {
 	assert.Equal(t, "bar", l.infoCalls[0].context["foo"])
 }
 
+func TestSetContextKeys_EnrichesLogs(t *testing.T) {
+	l := &fakeLogger{}
+	Init(testSetting{l})
+	SetContextKeys("trace_id", "user_id")
+
+	ctx := context.WithValue(context.Background(), "trace_id", "abc-123")
+	ctx = context.WithValue(ctx, "user_id", 42)
+
+	InfoContext(ctx, "enriched log", nil)
+	Stop()
+
+	require.Len(t, l.infoCalls, 1)
+	assert.Equal(t, "abc-123", l.infoCalls[0].context["trace_id"])
+	assert.Equal(t, 42, l.infoCalls[0].context["user_id"])
+}
+
 func TestWarn_FanOutAndPrefix(t *testing.T) {
 	l1 := &fakeLogger{}
 	l2 := &fakeLogger{}
