@@ -23,7 +23,7 @@ type TelegramLogger struct {
 }
 
 func (t TelegramLogger) Info(message string, fields map[string]interface{}) {
-	t.send(nil, message, fields, composite_logger.InfoLevel)
+	t.send(context.TODO(), message, fields, composite_logger.InfoLevel)
 }
 
 func (t TelegramLogger) InfoContext(ctx context.Context, message string, fields map[string]interface{}) {
@@ -31,7 +31,7 @@ func (t TelegramLogger) InfoContext(ctx context.Context, message string, fields 
 }
 
 func (t TelegramLogger) Warn(message string, fields map[string]interface{}) {
-	t.send(nil, message, fields, composite_logger.WarningLevel)
+	t.send(context.TODO(), message, fields, composite_logger.WarningLevel)
 }
 
 func (t TelegramLogger) WarnContext(ctx context.Context, message string, fields map[string]interface{}) {
@@ -39,7 +39,7 @@ func (t TelegramLogger) WarnContext(ctx context.Context, message string, fields 
 }
 
 func (t TelegramLogger) Error(message string, fields map[string]interface{}) {
-	t.send(nil, message, fields, composite_logger.ErrorLevel)
+	t.send(context.TODO(), message, fields, composite_logger.ErrorLevel)
 }
 
 func (t TelegramLogger) ErrorContext(ctx context.Context, message string, fields map[string]interface{}) {
@@ -47,7 +47,7 @@ func (t TelegramLogger) ErrorContext(ctx context.Context, message string, fields
 }
 
 func (t TelegramLogger) Fatal(message string, fields map[string]interface{}) {
-	t.send(nil, message, fields, composite_logger.FatalLevel)
+	t.send(context.TODO(), message, fields, composite_logger.FatalLevel)
 }
 
 func (t TelegramLogger) FatalContext(ctx context.Context, message string, fields map[string]interface{}) {

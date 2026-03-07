@@ -142,10 +142,15 @@ func TestWithContext_UsesBoundContext(t *testing.T) {
 func TestSetContextKeys_EnrichesLogs(t *testing.T) {
 	l := &fakeLogger{}
 	Init(testSetting{l})
-	SetContextKeys("trace_id", "user_id")
 
-	ctx := context.WithValue(context.Background(), "trace_id", "abc-123")
-	ctx = context.WithValue(ctx, "user_id", 42)
+	type contextKey string
+	traceKey := contextKey("trace_id")
+	userKey := contextKey("user_id")
+
+	SetContextKeys(traceKey, userKey)
+
+	ctx := context.WithValue(context.Background(), traceKey, "abc-123")
+	ctx = context.WithValue(ctx, userKey, 42)
 
 	InfoContext(ctx, "enriched log", nil)
 	Stop()

@@ -30,7 +30,7 @@ func TestFileSetting_InitLogger(t *testing.T) {
 			assert.NotNil(t, l)
 		})
 
-		// Check if file was created (lumberjack might not create it until first write, 
+		// Check if file was created (lumberjack might not create it until first write,
 		// but our InitLogger calls os.MkdirAll and lumberjack initialization)
 		_, err := os.Stat(logPath)
 		// Note: lumberjack only opens/creates the file on first write
