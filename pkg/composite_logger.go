@@ -22,7 +22,7 @@ type LoggerSetting = ports.LoggerSetting
 type logEntry struct {
 	level   Level
 	message string
-	context map[string]interface{}
+	fields  map[string]interface{}
 	ctx     context.Context
 }
 
@@ -130,16 +130,16 @@ func (cl *CompositeLogger) listenAndBroadcast() {
 	for entry := range cl.ch {
 		// Automatically enrich fields from context if keys are registered
 		if entry.ctx != nil && len(cl.contextKeys) > 0 {
-			if entry.context == nil {
-				entry.context = make(map[string]interface{})
+			if entry.fields == nil {
+				entry.fields = make(map[string]interface{})
 			}
 			for _, key := range cl.contextKeys {
 				if val := entry.ctx.Value(key); val != nil {
 					// Use string representation of the key as the field name if possible
 					if keyStr, ok := key.(string); ok {
 						// Only add if not already present in explicit fields
-						if _, exists := entry.context[keyStr]; !exists {
-							entry.context[keyStr] = val
+						if _, exists := entry.fields[keyStr]; !exists {
+							entry.fields[keyStr] = val
 						}
 					}
 				}
@@ -150,24 +150,24 @@ func (cl *CompositeLogger) listenAndBroadcast() {
 			if entry.ctx != nil {
 				switch entry.level {
 				case InfoLevel:
-					logger.InfoContext(entry.ctx, entry.message, entry.context)
+					logger.InfoContext(entry.ctx, entry.message, entry.fields)
 				case WarningLevel:
-					logger.WarnContext(entry.ctx, entry.message, entry.context)
+					logger.WarnContext(entry.ctx, entry.message, entry.fields)
 				case ErrorLevel:
-					logger.ErrorContext(entry.ctx, entry.message, entry.context)
+					logger.ErrorContext(entry.ctx, entry.message, entry.fields)
 				case FatalLevel:
-					logger.FatalContext(entry.ctx, entry.message, entry.context)
+					logger.FatalContext(entry.ctx, entry.message, entry.fields)
 				}
 			} else {
 				switch entry.level {
 				case InfoLevel:
-					logger.Info(entry.message, entry.context)
+					logger.Info(entry.message, entry.fields)
 				case WarningLevel:
-					logger.Warn(entry.message, entry.context)
+					logger.Warn(entry.message, entry.fields)
 				case ErrorLevel:
-					logger.Error(entry.message, entry.context)
+					logger.Error(entry.message, entry.fields)
 				case FatalLevel:
-					logger.Fatal(entry.message, entry.context)
+					logger.Fatal(entry.message, entry.fields)
 				}
 			}
 		}
@@ -201,7 +201,7 @@ func Stop() {
 // Usage:
 //
 //	composite_logger.Info("application started", map[string]interface{}{"env": "prod"})
-func Info(msg string, ctx map[string]interface{}) {
+func Info(msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	if instance == nil || instance.ch == nil {
@@ -210,7 +210,7 @@ func Info(msg string, ctx map[string]interface{}) {
 	instance.ch <- logEntry{
 		level:   InfoLevel,
 		message: "[INFO] " + msg,
-		context: ctx,
+		fields:  fields,
 	}
 }
 
@@ -230,7 +230,7 @@ func InfoContext(ctx context.Context, msg string, fields map[string]interface{})
 	instance.ch <- logEntry{
 		level:   InfoLevel,
 		message: "[INFO] " + msg,
-		context: fields,
+		fields:  fields,
 		ctx:     ctx,
 	}
 }
@@ -241,7 +241,7 @@ func InfoContext(ctx context.Context, msg string, fields map[string]interface{})
 // Usage:
 //
 //	composite_logger.Warn("disk space low", map[string]interface{}{"available": "500MB"})
-func Warn(msg string, ctx map[string]interface{}) {
+func Warn(msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	if instance == nil || instance.ch == nil {
@@ -250,7 +250,7 @@ func Warn(msg string, ctx map[string]interface{}) {
 	instance.ch <- logEntry{
 		level:   WarningLevel,
 		message: "[WARNING] " + msg,
-		context: ctx,
+		fields:  fields,
 	}
 }
 
@@ -265,7 +265,7 @@ func WarnContext(ctx context.Context, msg string, fields map[string]interface{})
 	instance.ch <- logEntry{
 		level:   WarningLevel,
 		message: "[WARNING] " + msg,
-		context: fields,
+		fields:  fields,
 		ctx:     ctx,
 	}
 }
@@ -276,8 +276,8 @@ func WarnContext(ctx context.Context, msg string, fields map[string]interface{})
 // Usage:
 //
 //	composite_logger.Error("database query failed", map[string]interface{}{"error": err})
-func Error(msg string, ctx map[string]interface{}) {
-	ctx = internal.BuildErrorContextWithStackTrace(ctx)
+func Error(msg string, fields map[string]interface{}) {
+	fields = internal.BuildErrorContextWithStackTrace(fields)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -287,7 +287,7 @@ func Error(msg string, ctx map[string]interface{}) {
 	instance.ch <- logEntry{
 		level:   ErrorLevel,
 		message: "[ERROR] " + msg,
-		context: ctx,
+		fields:  fields,
 	}
 }
 
@@ -304,7 +304,7 @@ func ErrorContext(ctx context.Context, msg string, fields map[string]interface{}
 	instance.ch <- logEntry{
 		level:   ErrorLevel,
 		message: "[ERROR] " + msg,
-		context: fields,
+		fields:  fields,
 		ctx:     ctx,
 	}
 }
@@ -316,8 +316,8 @@ func ErrorContext(ctx context.Context, msg string, fields map[string]interface{}
 // Usage:
 //
 //	composite_logger.Fatal("failed to load essential config", map[string]interface{}{"file": "config.yaml"})
-func Fatal(msg string, ctx map[string]interface{}) {
-	ctx = internal.BuildErrorContextWithStackTrace(ctx)
+func Fatal(msg string, fields map[string]interface{}) {
+	fields = internal.BuildErrorContextWithStackTrace(fields)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -327,7 +327,7 @@ func Fatal(msg string, ctx map[string]interface{}) {
 	instance.ch <- logEntry{
 		level:   FatalLevel,
 		message: "[FATAL] " + msg,
-		context: ctx,
+		fields:  fields,
 	}
 }
 
@@ -344,7 +344,7 @@ func FatalContext(ctx context.Context, msg string, fields map[string]interface{}
 	instance.ch <- logEntry{
 		level:   FatalLevel,
 		message: "[FATAL] " + msg,
-		context: fields,
+		fields:  fields,
 		ctx:     ctx,
 	}
 }
@@ -355,11 +355,11 @@ func FatalContext(ctx context.Context, msg string, fields map[string]interface{}
 // Usage:
 //
 //	defer composite_logger.Recover(map[string]interface{}{"handler": "user_create"})
-func Recover(ctx map[string]interface{}) {
+func Recover(fields map[string]interface{}) {
 	if r := recover(); r != nil {
 		Fatal("Panic recovered", map[string]interface{}{
-			"panic": r,
-			"ctx":   ctx,
+			"panic":  r,
+			"fields": fields,
 		})
 	}
 }

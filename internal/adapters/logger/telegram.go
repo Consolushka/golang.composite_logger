@@ -22,39 +22,39 @@ type TelegramLogger struct {
 	LevelTitles          map[composite_logger.Level]string
 }
 
-func (t TelegramLogger) Info(message string, context map[string]interface{}) {
-	t.send(nil, message, context, composite_logger.InfoLevel)
+func (t TelegramLogger) Info(message string, fields map[string]interface{}) {
+	t.send(nil, message, fields, composite_logger.InfoLevel)
 }
 
 func (t TelegramLogger) InfoContext(ctx context.Context, message string, fields map[string]interface{}) {
 	t.send(ctx, message, fields, composite_logger.InfoLevel)
 }
 
-func (t TelegramLogger) Warn(message string, context map[string]interface{}) {
-	t.send(nil, message, context, composite_logger.WarningLevel)
+func (t TelegramLogger) Warn(message string, fields map[string]interface{}) {
+	t.send(nil, message, fields, composite_logger.WarningLevel)
 }
 
 func (t TelegramLogger) WarnContext(ctx context.Context, message string, fields map[string]interface{}) {
 	t.send(ctx, message, fields, composite_logger.WarningLevel)
 }
 
-func (t TelegramLogger) Error(message string, context map[string]interface{}) {
-	t.send(nil, message, context, composite_logger.ErrorLevel)
+func (t TelegramLogger) Error(message string, fields map[string]interface{}) {
+	t.send(nil, message, fields, composite_logger.ErrorLevel)
 }
 
 func (t TelegramLogger) ErrorContext(ctx context.Context, message string, fields map[string]interface{}) {
 	t.send(ctx, message, fields, composite_logger.ErrorLevel)
 }
 
-func (t TelegramLogger) Fatal(message string, context map[string]interface{}) {
-	t.send(nil, message, context, composite_logger.FatalLevel)
+func (t TelegramLogger) Fatal(message string, fields map[string]interface{}) {
+	t.send(nil, message, fields, composite_logger.FatalLevel)
 }
 
 func (t TelegramLogger) FatalContext(ctx context.Context, message string, fields map[string]interface{}) {
 	t.send(ctx, message, fields, composite_logger.FatalLevel)
 }
 
-func (t TelegramLogger) send(ctx context.Context, message string, context map[string]interface{}, level composite_logger.Level) {
+func (t TelegramLogger) send(ctx context.Context, message string, fields map[string]interface{}, level composite_logger.Level) {
 	if t.Level > level {
 		return
 	}
@@ -63,7 +63,7 @@ func (t TelegramLogger) send(ctx context.Context, message string, context map[st
 		return
 	}
 
-	text := formatTelegramMarkdown(message, context, level, t)
+	text := formatTelegramMarkdown(message, fields, level, t)
 
 	tgMessage := tgbotapi.NewMessage(t.LogChatId, text)
 	tgMessage.ParseMode = "MarkdownV2"
@@ -80,14 +80,14 @@ func (t TelegramLogger) send(ctx context.Context, message string, context map[st
 	}
 }
 
-func formatTelegramMarkdown(message string, context map[string]interface{}, level composite_logger.Level, t TelegramLogger) string {
+func formatTelegramMarkdown(message string, fields map[string]interface{}, level composite_logger.Level, t TelegramLogger) string {
 	escapeMarkdownV2 := func(text string) string {
 		var markdownV2Regex = regexp.MustCompile(`([\[\]\-_*~` + "`" + `>#+=|{}.!])`)
 		return markdownV2Regex.ReplaceAllString(text, "\\$1")
 	}
 
 	now := time.Now().Format("[2006-01-02 15:04:05]")
-	jsonContext, _ := json.MarshalIndent(normalizeLogContext(context), "", "    ")
+	jsonFields, _ := json.MarshalIndent(normalizeLogContext(fields), "", "    ")
 
 	title, ok := t.LevelTitles[level]
 	if !ok || title == "" {
@@ -106,18 +106,18 @@ func formatTelegramMarkdown(message string, context map[string]interface{}, leve
 		decoration,
 		escapeMarkdownV2(now),
 		escapeMarkdownV2(message),
-		string(jsonContext))
+		string(jsonFields))
 
 	return text
 }
 
-func normalizeLogContext(context map[string]interface{}) map[string]interface{} {
-	if context == nil {
+func normalizeLogContext(fields map[string]interface{}) map[string]interface{} {
+	if fields == nil {
 		return nil
 	}
 
-	normalized := make(map[string]interface{}, len(context))
-	for key, value := range context {
+	normalized := make(map[string]interface{}, len(fields))
+	for key, value := range fields {
 		switch typed := value.(type) {
 		case error:
 			normalized[key] = typed.Error()

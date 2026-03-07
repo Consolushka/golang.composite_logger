@@ -12,15 +12,15 @@ type MyCustomLogger struct {
 	Prefix string
 }
 
-func (m MyCustomLogger) Info(msg string, ctx map[string]interface{}) {
-	fmt.Printf("%s [INFO] %s | Context: %v\n", m.Prefix, msg, ctx)
+func (m MyCustomLogger) Info(msg string, fields map[string]interface{}) {
+	fmt.Printf("%s [INFO] %s | Context: %v\n", m.Prefix, msg, fields)
 }
 
 func (m MyCustomLogger) InfoContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	fmt.Printf("%s [INFO] %s | Context: %v | Fields: %v\n", m.Prefix, msg, ctx, fields)
 }
 
-func (m MyCustomLogger) Warn(msg string, ctx map[string]interface{}) {
+func (m MyCustomLogger) Warn(msg string, fields map[string]interface{}) {
 	fmt.Printf("%s [WARN] %s\n", m.Prefix, msg)
 }
 
@@ -28,7 +28,7 @@ func (m MyCustomLogger) WarnContext(ctx context.Context, msg string, fields map[
 	fmt.Printf("%s [WARN] %s | Fields: %v\n", m.Prefix, msg, fields)
 }
 
-func (m MyCustomLogger) Error(msg string, ctx map[string]interface{}) {
+func (m MyCustomLogger) Error(msg string, fields map[string]interface{}) {
 	fmt.Printf("%s [ERROR] %s\n", m.Prefix, msg)
 }
 
@@ -36,7 +36,7 @@ func (m MyCustomLogger) ErrorContext(ctx context.Context, msg string, fields map
 	fmt.Printf("%s [ERROR] %s | Fields: %v\n", m.Prefix, msg, fields)
 }
 
-func (m MyCustomLogger) Fatal(msg string, ctx map[string]interface{}) {
+func (m MyCustomLogger) Fatal(msg string, fields map[string]interface{}) {
 	fmt.Printf("%s [FATAL] %s\n", m.Prefix, msg)
 }
 
