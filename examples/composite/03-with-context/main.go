@@ -17,7 +17,7 @@ func main() {
 
 	ctx := context.WithValue(context.Background(), "trace_id", "trace-789")
 
-	// Bind context once to create an Entry
+	// Bind context once to create a LoggingContext
 	log := composite_logger.WithContext(ctx)
 
 	// Now use short methods - context is preserved automatically

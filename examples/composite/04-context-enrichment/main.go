@@ -24,8 +24,8 @@ func main() {
 
 	// 3. Log using InfoContext - keys will be added to the output AUTOMATICALLY
 	composite_logger.InfoContext(ctx, "Handling user request", map[string]interface{}{"user_id": 42})
-	
-	// You can also use WithContext pattern with enrichment
+
+	// You can also use LoggingContext pattern with enrichment
 	log := composite_logger.WithContext(ctx)
 	log.Info("Steps completed", nil) // trace_id and request_id are still included!
 }
