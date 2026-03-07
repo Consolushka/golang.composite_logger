@@ -26,6 +26,43 @@ type logEntry struct {
 	ctx     context.Context
 }
 
+// Entry represents a logger instance bound to a specific context.
+// It provides a convenient way to log multiple messages without passing the context every time.
+type Entry struct {
+	ctx context.Context
+}
+
+// WithContext creates a new Entry bound to the provided context.
+// All logging methods on the returned Entry will use this context.
+//
+// Usage:
+//
+//	log := composite_logger.WithContext(ctx)
+//	log.Info("operation started", nil)
+func WithContext(ctx context.Context) *Entry {
+	return &Entry{ctx: ctx}
+}
+
+// Info logs a message with the INFO level using the Entry's context.
+func (e *Entry) Info(msg string, fields map[string]interface{}) {
+	InfoContext(e.ctx, msg, fields)
+}
+
+// Warn logs a message with the WARNING level using the Entry's context.
+func (e *Entry) Warn(msg string, fields map[string]interface{}) {
+	WarnContext(e.ctx, msg, fields)
+}
+
+// Error logs a message with the ERROR level using the Entry's context.
+func (e *Entry) Error(msg string, fields map[string]interface{}) {
+	ErrorContext(e.ctx, msg, fields)
+}
+
+// Fatal logs a message with the FATAL level using the Entry's context.
+func (e *Entry) Fatal(msg string, fields map[string]interface{}) {
+	FatalContext(e.ctx, msg, fields)
+}
+
 // CompositeLogger manages a collection of loggers and handles asynchronous log dispatching.
 // It uses an internal channel for non-blocking log operations.
 type CompositeLogger struct {
@@ -33,6 +70,7 @@ type CompositeLogger struct {
 	ch      chan logEntry
 	wg      sync.WaitGroup
 }
+...
 
 // Init initializes the global logger instance with the provided settings.
 // This function must be called before any other logging operations.

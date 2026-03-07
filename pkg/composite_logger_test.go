@@ -122,6 +122,23 @@ func TestInfoContext_FanOutAndPrefix(t *testing.T) {
 	assert.Equal(t, "abc-123", l1.infoCalls[0].context["requestId"])
 }
 
+func TestWithContext_UsesBoundContext(t *testing.T) {
+	l := &fakeLogger{}
+	Init(testSetting{l})
+
+	type contextKey string
+	ctx := context.WithValue(context.Background(), contextKey("traceId"), "trace-with-context")
+
+	entry := WithContext(ctx)
+	entry.Info("bound log", map[string]interface{}{"foo": "bar"})
+	Stop()
+
+	require.Len(t, l.infoCalls, 1)
+	assert.Equal(t, ctx, l.infoCalls[0].ctx)
+	assert.Equal(t, "[INFO] bound log", l.infoCalls[0].message)
+	assert.Equal(t, "bar", l.infoCalls[0].context["foo"])
+}
+
 func TestWarn_FanOutAndPrefix(t *testing.T) {
 	l1 := &fakeLogger{}
 	l2 := &fakeLogger{}
