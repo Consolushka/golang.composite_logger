@@ -2,6 +2,7 @@ package composite_logger
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/Consolushka/golang.composite_logger/internal"
@@ -135,12 +136,15 @@ func (cl *CompositeLogger) listenAndBroadcast() {
 			}
 			for _, key := range cl.contextKeys {
 				if val := entry.ctx.Value(key); val != nil {
-					// Use string representation of the key as the field name if possible
-					if keyStr, ok := key.(string); ok {
-						// Only add if not already present in explicit fields
-						if _, exists := entry.fields[keyStr]; !exists {
-							entry.fields[keyStr] = val
-						}
+					// Use string representation of the key as the field name
+					keyStr, ok := key.(string)
+					if !ok {
+						keyStr = fmt.Sprintf("%v", key)
+					}
+
+					// Only add if not already present in explicit fields
+					if _, exists := entry.fields[keyStr]; !exists {
+						entry.fields[keyStr] = val
 					}
 				}
 			}
