@@ -27,6 +27,7 @@ type logEntry struct {
 }
 
 // CompositeLogger manages a collection of loggers and handles asynchronous log dispatching.
+// It uses an internal channel for non-blocking log operations.
 type CompositeLogger struct {
 	loggers []ports.Logger
 	ch      chan logEntry
@@ -34,11 +35,16 @@ type CompositeLogger struct {
 }
 
 // Init initializes the global logger instance with the provided settings.
-// If an instance already exists, it will be gracefully shut down before re-initialization.
+// This function must be called before any other logging operations.
+// If an instance already exists, it will be gracefully shut down (flushing queued logs)
+// before the new instance is started.
 //
 // Usage:
 //
-//	composite_logger.Init(setting.ConsoleSetting{LowerLevel: composite_logger.InfoLevel}, setting.TelegramSetting{LowerLevel: composite_logger.InfoLevel, Enabled: true})
+//	composite_logger.Init(
+//	    setting.ConsoleSetting{Enabled: true, LowerLevel: composite_logger.InfoLevel},
+//	    setting.FileSetting{Enabled: true, Path: "app.log", LowerLevel: composite_logger.WarningLevel},
+//	)
 func Init(settings ...LoggerSetting) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -119,10 +125,11 @@ func Stop() {
 }
 
 // Info asynchronously logs a message with the INFO level.
+// This is suitable for general status updates and application milestones.
 //
 // Usage:
 //
-//	composite_logger.Info("app started", map[string]interface{}{"env": "prod"})
+//	composite_logger.Info("application started", map[string]interface{}{"env": "prod"})
 func Info(msg string, ctx map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -138,6 +145,7 @@ func Info(msg string, ctx map[string]interface{}) {
 
 // InfoContext asynchronously logs a message with the INFO level and provides calling context.
 // Use this to correlate logs with specific requests or background tasks.
+// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
 //
 // Usage:
 //
@@ -157,10 +165,11 @@ func InfoContext(ctx context.Context, msg string, fields map[string]interface{})
 }
 
 // Warn asynchronously logs a message with the WARNING level.
+// Use this for alerts that don't stop the application but require investigation.
 //
 // Usage:
 //
-//	composite_logger.Warn("high latency", map[string]interface{}{"ms": 500})
+//	composite_logger.Warn("disk space low", map[string]interface{}{"available": "500MB"})
 func Warn(msg string, ctx map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -175,6 +184,7 @@ func Warn(msg string, ctx map[string]interface{}) {
 }
 
 // WarnContext asynchronously logs a message with the WARNING level and provides calling context.
+// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
 func WarnContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -190,10 +200,11 @@ func WarnContext(ctx context.Context, msg string, fields map[string]interface{})
 }
 
 // Error captures a stack trace and asynchronously logs a message with the ERROR level.
+// This is used for recoverable failures that shouldn't crash the program.
 //
 // Usage:
 //
-//	composite_logger.Error("db connection failed", map[string]interface{}{"error": err})
+//	composite_logger.Error("database query failed", map[string]interface{}{"error": err})
 func Error(msg string, ctx map[string]interface{}) {
 	ctx = internal.BuildErrorContextWithStackTrace(ctx)
 
@@ -210,6 +221,7 @@ func Error(msg string, ctx map[string]interface{}) {
 }
 
 // ErrorContext captures a stack trace and asynchronously logs a message with the ERROR level and context.
+// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
 func ErrorContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	fields = internal.BuildErrorContextWithStackTrace(fields)
 
@@ -232,7 +244,7 @@ func ErrorContext(ctx context.Context, msg string, fields map[string]interface{}
 //
 // Usage:
 //
-//	composite_logger.Fatal("system crashed", map[string]interface{}{"reason": "out of memory"})
+//	composite_logger.Fatal("failed to load essential config", map[string]interface{}{"file": "config.yaml"})
 func Fatal(msg string, ctx map[string]interface{}) {
 	ctx = internal.BuildErrorContextWithStackTrace(ctx)
 
@@ -249,6 +261,7 @@ func Fatal(msg string, ctx map[string]interface{}) {
 }
 
 // FatalContext captures a stack trace and asynchronously logs a message with the FATAL level and context.
+// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
 func FatalContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	fields = internal.BuildErrorContextWithStackTrace(fields)
 
@@ -282,6 +295,7 @@ func Recover(ctx map[string]interface{}) {
 
 // RecoverContext is a helper function to be used in defer statements to catch and log panics as FATAL errors with context.
 // This is useful for capturing trace and request IDs during a crash.
+// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
 //
 // Usage:
 //

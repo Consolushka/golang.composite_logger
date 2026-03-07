@@ -19,6 +19,9 @@ func (f FileLogger) Info(message string, context map[string]interface{}) {
 }
 
 func (f FileLogger) InfoContext(ctx context.Context, message string, fields map[string]interface{}) {
+	if ctx != nil && ctx.Err() != nil {
+		return
+	}
 	f.logrus.WithContext(ctx).WithFields(fields).Info(message)
 }
 
@@ -27,6 +30,9 @@ func (f FileLogger) Warn(message string, context map[string]interface{}) {
 }
 
 func (f FileLogger) WarnContext(ctx context.Context, message string, fields map[string]interface{}) {
+	if ctx != nil && ctx.Err() != nil {
+		return
+	}
 	f.logrus.WithContext(ctx).WithFields(fields).Warn(message)
 }
 
@@ -35,6 +41,9 @@ func (f FileLogger) Error(message string, context map[string]interface{}) {
 }
 
 func (f FileLogger) ErrorContext(ctx context.Context, message string, fields map[string]interface{}) {
+	if ctx != nil && ctx.Err() != nil {
+		return
+	}
 	f.logrus.WithContext(ctx).WithFields(fields).Error(message)
 }
 
@@ -43,5 +52,8 @@ func (f FileLogger) Fatal(message string, context map[string]interface{}) {
 }
 
 func (f FileLogger) FatalContext(ctx context.Context, message string, fields map[string]interface{}) {
+	if ctx != nil && ctx.Err() != nil {
+		return
+	}
 	f.logrus.WithContext(ctx).WithFields(fields).Log(logrus.FatalLevel, message)
 }
