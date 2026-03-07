@@ -129,8 +129,8 @@ func TestWithContext_UsesBoundContext(t *testing.T) {
 	type contextKey string
 	ctx := context.WithValue(context.Background(), contextKey("traceId"), "trace-with-context")
 
-	entry := WithContext(ctx)
-	entry.Info("bound log", map[string]interface{}{"foo": "bar"})
+	lc := WithContext(ctx)
+	lc.Info("bound log", map[string]interface{}{"foo": "bar"})
 	Stop()
 
 	require.Len(t, l.infoCalls, 1)
