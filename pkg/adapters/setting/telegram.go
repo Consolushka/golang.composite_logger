@@ -11,28 +11,40 @@ import (
 )
 
 // TelegramSetting provides configuration for the Telegram logging adapter.
+// It sends formatted MarkdownV2 messages to a specified Telegram chat.
 type TelegramSetting struct {
 	// Enabled toggles the telegram logger on or off.
-	Enabled              bool
-	// BotKey is the Telegram bot API token.
-	BotKey               string
-	// ChatId is the unique identifier for the target chat or user.
-	ChatId               int64
-	// Timeout sets the HTTP client timeout for API requests.
-	Timeout              time.Duration
-	// LowerLevel sets the minimum severity level to log.
-	LowerLevel           compositelogger.Level
-	// UseLevelTitleWrapper enables emoji/symbol decoration around log levels if true (default: true).
+	Enabled bool
+
+	// BotKey is the Telegram bot API token obtained from @BotFather.
+	BotKey string
+
+	// ChatId is the unique identifier for the target chat, channel, or user.
+	ChatId int64
+
+	// Timeout sets the HTTP client timeout for API requests to Telegram.
+	Timeout time.Duration
+
+	// LowerLevel sets the minimum severity level that this adapter will process.
+	LowerLevel compositelogger.Level
+
+	// UseLevelTitleWrapper enables emoji/symbol decoration around log levels if true.
+	// For example: 🚨 ERROR 🚨. Defaults to true if nil.
 	UseLevelTitleWrapper *bool
+
 	// LevelWrappers allows overriding default emojis for specific levels.
-	LevelWrappers        map[compositelogger.Level]string
+	// Map keys are compositelogger.Level and values are the decoration strings.
+	LevelWrappers map[compositelogger.Level]string
+
 	// LevelTitles allows overriding default display names for log levels.
-	LevelTitles          map[compositelogger.Level]string
+	// Useful for internationalization or custom naming conventions.
+	LevelTitles map[compositelogger.Level]string
 }
 
 var botAPIConstructor = tgbotapi.NewBotAPI
 
 // InitLogger initializes a Telegram-based logger with MarkdownV2 support.
+// It uses the provided BotKey and ChatId to establish communication.
 func (t TelegramSetting) InitLogger() ports.Logger {
 	botApi, err := botAPIConstructor(t.BotKey)
 	if err != nil {
@@ -74,7 +86,7 @@ func (t TelegramSetting) InitLogger() ports.Logger {
 	}
 }
 
-// IsEnabled returns the current active status of the adapter.
+// IsEnabled returns the current active status of the Telegram adapter.
 func (t TelegramSetting) IsEnabled() bool {
 	return t.Enabled
 }

@@ -13,26 +13,38 @@ import (
 )
 
 // FileSetting provides configuration for the file-based logging adapter with automatic rotation.
+// It uses Lumberjack for rotation and Logrus for formatting.
 type FileSetting struct {
 	// Enabled toggles the file logger on or off.
-	Enabled         bool
-	// IsJsonFormatter enables JSON output format if true (default: true).
+	Enabled bool
+
+	// IsJsonFormatter enables JSON output format if true.
+	// If false, it uses the default Logrus text formatter.
+	// Defaults to true if nil.
 	IsJsonFormatter *bool
+
 	// Path is the filesystem path to the log file.
-	Path            string
-	// LowerLevel sets the minimum severity level to log.
-	LowerLevel      compositelogger.Level
+	// The directory will be created automatically if it doesn't exist.
+	Path string
+
+	// LowerLevel sets the minimum severity level that this adapter will process.
+	LowerLevel compositelogger.Level
+
 	// MaxSize is the maximum size in megabytes before rotation (default: 5).
-	MaxSize         int
+	MaxSize int
+
 	// MaxBackups is the maximum number of old log files to retain (default: 3).
-	MaxBackups      int
+	MaxBackups int
+
 	// MaxAge is the maximum number of days to retain old log files (default: 28).
-	MaxAge          int
+	MaxAge int
+
 	// Compress determines if old log files should be compressed (default: true).
-	Compress        bool
+	Compress bool
 }
 
 // InitLogger initializes a logrus-based file logger with lumberjack for rotation.
+// It writes to both the specified file and standard output.
 func (f FileSetting) InitLogger() ports.Logger {
 	if f.Path == "" {
 		panic("File path is not set")
@@ -91,7 +103,7 @@ func (f FileSetting) setupRotation() *lumberjack.Logger {
 	return lumberjackLogger
 }
 
-// IsEnabled returns the current active status of the adapter.
+// IsEnabled returns the current active status of the file adapter.
 func (f FileSetting) IsEnabled() bool {
 	return f.Enabled
 }
