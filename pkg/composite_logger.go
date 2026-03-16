@@ -20,6 +20,9 @@ type Logger = ports.Logger
 // LoggerSetting is a re-export of ports.LoggerSetting for convenience.
 type LoggerSetting = ports.LoggerSetting
 
+// Hook is a re-export of ports.Hook for convenience.
+type Hook = ports.Hook
+
 type logEntry struct {
 	level   Level
 	message string
@@ -68,6 +71,7 @@ func (l *LoggingContext) Fatal(msg string, fields map[string]interface{}) {
 // It uses an internal channel for non-blocking log operations.
 type CompositeLogger struct {
 	loggers     []ports.Logger
+	hooks       []ports.Hook
 	ch          chan logEntry
 	wg          sync.WaitGroup
 	contextKeys []any
@@ -109,6 +113,20 @@ func Init(settings ...LoggerSetting) {
 	go instance.listenAndBroadcast()
 }
 
+// AddHook adds a hook to the global logger instance.
+// Hooks are executed for each log entry before it is broadcast to adapters.
+//
+// Usage:
+//
+//	composite_logger.AddHook(MyOtelHook{})
+func AddHook(hook ports.Hook) {
+	mu.Lock()
+	defer mu.Unlock()
+	if instance != nil {
+		instance.hooks = append(instance.hooks, hook)
+	}
+}
+
 // SetContextKeys registers a list of context keys that the logger should automatically
 // extract from the provided context and add to the log fields.
 // This is useful for automatically including trace IDs, request IDs, etc.
@@ -147,6 +165,19 @@ func (cl *CompositeLogger) listenAndBroadcast() {
 						entry.fields[keyStr] = val
 					}
 				}
+			}
+		}
+
+		// Call registered hooks before broadcasting to adapters
+		if len(cl.hooks) > 0 {
+			ctx := entry.ctx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+
+			levelStr := entry.level.String()
+			for _, hook := range cl.hooks {
+				_ = hook.Fire(ctx, levelStr, entry.message, entry.fields)
 			}
 		}
 
