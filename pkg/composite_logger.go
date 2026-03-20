@@ -170,6 +170,10 @@ func (cl *CompositeLogger) listenAndBroadcast() {
 
 		// Call registered hooks before broadcasting to adapters
 		if len(cl.hooks) > 0 {
+			if entry.fields == nil {
+				entry.fields = make(map[string]interface{})
+			}
+
 			ctx := entry.ctx
 			if ctx == nil {
 				ctx = context.Background()

@@ -1,17 +1,37 @@
 # Composite Logger
 
-A flexible, multi-destination logging library for Go, built with **Hexagonal Architecture (Ports & Adapters)**. It allows you to broadcast logs to the Console, Files, and Telegram simultaneously with a unified API.
+A flexible, asynchronous logging library for Go, built with **Hexagonal Architecture (Ports & Adapters)**. It allows you to broadcast logs to multiple destinations simultaneously using a unified, non-blocking engine.
 
-## Features
+## Key Features
 
-- 🚀 **Asynchronous Engine**: Non-blocking logging using a background worker and buffered channels.
-- 🏗 **Clean Architecture**: Decoupled core logic from specific implementations using Ports & Adapters.
-- 🌐 **Context Support**: Fully supports `context.Context` for integration with tracing systems (OpenTelemetry, etc.) and cancellation.
-- 📄 **Structured Logging**: Powered by [Logrus](https://github.com/sirupsen/logrus) with JSON and Text support.
-- 🤖 **Telegram Integration**: Send formatted alerts to Telegram with custom emojis, titles, and configurable timeouts.
-- 📦 **Log Rotation**: Built-in log rotation for file adapter using [Lumberjack](https://github.com/natefinch/lumberjack).
-- 🔍 **Auto Stack Traces**: Automatically captures and cleans stack traces for `Error` and `Fatal` levels.
-- 🛡 **Panic Recovery**: Catch and log panics as Fatal errors.
+- 🚀 **Asynchronous Core**: Logging operations are non-blocking, handled by a background worker with a buffered queue.
+- 🏗 **Hexagonal Architecture**: Core logic is decoupled from output implementations.
+- 🌐 **First-class Context Support**: Native support for `context.Context` to handle tracing, request IDs, and cancellation.
+- 🔗 **Composite Pattern**: Broadcast a single log message to N destinations with different filters and formats.
+- 🔍 **Diagnostic-ready**: Automatic stack trace capture for errors and built-in panic recovery.
+
+---
+
+## Supported Adapters (Outputs)
+
+The library provides pluggable adapters to send logs where you need them:
+
+- **Console**: Standard output with support for JSON or human-readable text.
+- **File**: Persistent storage with built-in log rotation (size, age, backups).
+- **Telegram**: Formatted MarkdownV2 alerts for critical errors with customizable decorators.
+
+*Want more? You can easily implement your own adapter by satisfying the `ports.Logger` interface.*
+
+---
+
+## Hooks & Middleware
+
+Hooks allow you to process or enrich log entries before they are broadcast to adapters.
+
+- **OpenTelemetry Hook**: Automatically extracts `trace_id` and `span_id` from the context.
+- **Custom Hooks**: Implement the `ports.Hook` interface to add custom metadata, audit logs, or filtering logic.
+
+---
 
 ## Installation
 
@@ -19,121 +39,80 @@ A flexible, multi-destination logging library for Go, built with **Hexagonal Arc
 go get github.com/Consolushka/golang.composite_logger
 ```
 
-## Quick Start
+---
+
+## Full-featured Example
+
+This example demonstrates a production-ready setup: multiple adapters, OTel correlation, and panic safety.
 
 ```go
 package main
 
 import (
-	"context"
-	"github.com/Consolushka/golang.composite_logger/pkg"
-	"github.com/Consolushka/golang.composite_logger/pkg/adapters/setting"
+    "context"
+    "time"
+
+    "github.com/Consolushka/golang.composite_logger/pkg"
+    "github.com/Consolushka/golang.composite_logger/pkg/adapters/hook"
+    "github.com/Consolushka/golang.composite_logger/pkg/adapters/setting"
 )
 
 func main() {
-	// Initialize with Console and File loggers
-	composite_logger.Init(
-		setting.ConsoleSetting{
-			Enabled:    true,
-			LowerLevel: composite_logger.InfoLevel,
-		},
-		setting.FileSetting{
-			Enabled:    true,
-			Path:       "logs/app.log",
-			LowerLevel: composite_logger.WarningLevel,
-		},
-	)
-
-	// ALWAYS call Stop() at the end to flush the async queue
-	defer composite_logger.Stop()
-
-	// Simple logging
-	composite_logger.Info("Hello, World!", map[string]interface{}{
-		"user_id": 42,
-	})
-
-	// Context-aware logging (useful for tracing/request IDs)
-	ctx := context.WithValue(context.Background(), "trace_id", "abc-123")
-	composite_logger.InfoContext(ctx, "Operation started", map[string]interface{}{
-		"action": "sync",
-	})
-}
-```
-
-## Advanced Configuration
-
-### JSON Formatting
-Both Console and File adapters support JSON formatting (enabled by default).
-
-```go
-setting.ConsoleSetting{
-    Enabled:         true,
-    IsJsonFormatter: &[]bool{false}[0], // Explicitly disable JSON to use Text
-}
-```
-
-### Telegram Adapter
-Highly customizable with timeouts and level decorators.
-
-```go
-composite_logger.Init(
-    setting.TelegramSetting{
-        Enabled:              true,
-        BotKey:               "YOUR_BOT_TOKEN",
-        ChatId:               12345678,
-        Timeout:              10 * time.Second, // Network timeout
-        LowerLevel:           composite_logger.ErrorLevel,
-        UseLevelTitleWrapper: &[]bool{true}[0],
-        // Optional: override default emojis (ℹ️ℹ️, 🚨🚨, etc.)
-        LevelWrappers: map[composite_logger.Level]string{
-            composite_logger.FatalLevel: "💀",
+    // 1. Initialize with multiple destinations
+    composite_logger.Init(
+        // Console for development
+        setting.ConsoleSetting{
+            Enabled:    true,
+            LowerLevel: composite_logger.InfoLevel,
         },
-        // Optional: override level names
-        LevelTitles: map[composite_logger.Level]string{
-            composite_logger.ErrorLevel: "ALARM",
+        // File for persistence with rotation
+        setting.FileSetting{
+            Enabled:    true,
+            Path:       "logs/app.log",
+            MaxSize:    10, // MB
+            LowerLevel: composite_logger.InfoLevel,
         },
-    },
-)
-```
+        // Telegram for critical alerts
+        setting.TelegramSetting{
+            Enabled:    true,
+            BotKey:     "YOUR_BOT_TOKEN",
+            ChatId:     12345678,
+            LowerLevel: composite_logger.ErrorLevel,
+        },
+    )
 
-### Panic Recovery
+    // CRITICAL: Ensure all logs are flushed before exit
+    defer composite_logger.Stop()
 
-Use `Recover` or `RecoverContext` in your `defer` blocks to ensure panics are captured and logged with full stack traces.
+    // 2. Add OpenTelemetry support for log-trace correlation
+    composite_logger.AddHook(hook.OpenTelemetryHook{})
 
-```go
-func someDangerousOperation(ctx context.Context) {
-    // Log panic with trace information from context
-    defer composite_logger.RecoverContext(ctx, map[string]interface{}{
-        "op": "database_sync",
+    // 3. Setup panic recovery for the main goroutine
+    defer composite_logger.Recover(map[string]interface{}{"scope": "main"})
+
+    // 4. Use context-aware logging
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    composite_logger.InfoContext(ctx, "System initialized", map[string]interface{}{
+        "version": "v1.2.0",
     })
 
-    panic("unexpected failure") // This will be logged as a FATAL error
+    // 5. Bound context logger (convenience wrapper)
+    logger := composite_logger.WithContext(ctx)
+    logger.Warn("Resource usage high", map[string]interface{}{"cpu": "85%"})
 }
 ```
 
-## Examples
+---
 
-The [examples/](./examples) directory contains a structured set of lessons to help you get started:
+## Learning by Example
 
-- **Console**: [Text format](./examples/console/01-text), [JSON format](./examples/console/02-json), [Context support](./examples/console/03-context)
-- **File**: [Text format](./examples/file/01-text), [JSON format](./examples/file/02-json), [Rotation](./examples/file/03-rotation), [Context support](./examples/file/04-context)
-- **Telegram**: [Basic](./examples/telegram/01-basic), [Decorations](./examples/telegram/02-no-wrappers), [Custom Emojis](./examples/telegram/03-custom-wrappers), [Custom Titles](./examples/telegram/04-custom-titles), [Timeouts](./examples/telegram/05-timeout), [Context Cancellation](./examples/telegram/06-context)
-- **Composite**: [Basic](./examples/composite/01-basic), [Context methods](./examples/composite/02-context-methods), [WithContext pattern](./examples/composite/03-with-context), [Context enrichment](./examples/composite/04-context-enrichment)
-- **Custom Adapters**: [Custom implementation](./examples/custom-adapter)
+Explore the [examples/](./examples) directory for detailed implementation guides:
 
-## Project Structure
-
-- `pkg/`: Public API and core types.
-- `pkg/ports/`: Interfaces for loggers and settings.
-- `pkg/adapters/setting/`: Concrete settings used for initialization.
-- `internal/`: Private implementations and internal logic.
-
-## Log Levels
-
-1. `InfoLevel`
-2. `WarningLevel`
-3. `ErrorLevel`
-4. `FatalLevel`
+- **Basic Usage**: [Console](./examples/console) | [File](./examples/file) | [Telegram](./examples/telegram)
+- **Architecture**: [Composite Pattern](./examples/composite) | [Custom Adapters](./examples/custom-adapter)
+- **Advanced**: [OpenTelemetry Integration](./examples/otel-hook) | [Custom Hooks](./examples/custom-hook)
 
 ## License
 
