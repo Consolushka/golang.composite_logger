@@ -19,8 +19,10 @@ A flexible Go logging library implementing the composite pattern and hexagonal a
 
 ## Initialization
 
-The library uses a variadic `Init` function that accepts multiple settings. It starts a background worker to process logs asynchronously.
+The library supports two initialization modes: **Synchronous** (default) and **Asynchronous**.
 
+### Synchronous Mode (Default)
+Best for CLI tools or short-lived tasks where log durability is prioritized over non-blocking performance.
 ```go
 import (
     "github.com/Consolushka/golang.composite_logger/pkg"
@@ -28,34 +30,29 @@ import (
 )
 
 func main() {
-    // Initialize with desired loggers
+    // Initialize in synchronous (blocking) mode
     composite_logger.Init(
-        setting.ConsoleSetting{
-            Enabled:    true, 
-            LowerLevel: composite_logger.InfoLevel,
-        },
-        setting.FileSetting{
-            Enabled:    true,
-            Path:       "logs/app.log",
-            LowerLevel: composite_logger.WarningLevel,
-        },
-        setting.TelegramSetting{
-            Enabled:              true,
-            BotKey:               "YOUR_BOT_KEY",
-            ChatId:               12345678,
-            LowerLevel:           composite_logger.ErrorLevel,
-            UseLevelTitleWrapper: &[]bool{true}[0], 
-        },
+        setting.ConsoleSetting{Enabled: true, LowerLevel: composite_logger.InfoLevel},
+    )
+    defer composite_logger.Stop()
+    
+    composite_logger.Info("Log written immediately", nil)
+}
+```
+
+### Asynchronous Mode
+Best for high-throughput applications where log latency should be minimized. Logs are processed by a background worker.
+```go
+func main() {
+    // Initialize in asynchronous (non-blocking) mode
+    composite_logger.InitAsync(
+        setting.ConsoleSetting{Enabled: true, LowerLevel: composite_logger.InfoLevel},
     )
     
     // CRITICAL: Always call Stop() to flush the async queue
     defer composite_logger.Stop()
     
-    // Use the global logger
-    composite_logger.Info("App started", nil)
-    
-    // Capture panics
-    defer composite_logger.Recover(map[string]interface{}{"context": "main"})
+    composite_logger.Info("Log queued asynchronously", nil)
 }
 ```
 
