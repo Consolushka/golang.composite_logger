@@ -2,15 +2,15 @@ package composite_logger
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/Consolushka/golang.composite_logger/internal"
+	hub "github.com/Consolushka/golang.composite_logger/internal/adapters/composite_logger"
 	"github.com/Consolushka/golang.composite_logger/pkg/ports"
 )
 
 var (
-	instance *CompositeLogger
+	instance ports.CompositeLogger
 	mu       sync.Mutex
 )
 
@@ -23,12 +23,8 @@ type LoggerSetting = ports.LoggerSetting
 // Hook is a re-export of ports.Hook for convenience.
 type Hook = ports.Hook
 
-type logEntry struct {
-	level   Level
-	message string
-	fields  map[string]interface{}
-	ctx     context.Context
-}
+// CompositeLogger is a re-export of ports.CompositeLogger for convenience.
+type CompositeLogger = ports.CompositeLogger
 
 // LoggingContext represents a logger instance bound to a specific context.
 // It provides a convenient way to log multiple messages without passing the context every time.
@@ -38,11 +34,6 @@ type LoggingContext struct {
 
 // WithContext creates a new LoggingContext bound to the provided context.
 // All logging methods on the returned instance will use this context.
-//
-// Usage:
-//
-//	log := composite_logger.WithContext(ctx)
-//	log.Info("operation started", nil)
 func WithContext(ctx context.Context) *LoggingContext {
 	return &LoggingContext{ctx: ctx}
 }
@@ -67,333 +58,168 @@ func (l *LoggingContext) Fatal(msg string, fields map[string]interface{}) {
 	FatalContext(l.ctx, msg, fields)
 }
 
-// CompositeLogger manages a collection of loggers and handles asynchronous log dispatching.
-// It uses an internal channel for non-blocking log operations.
-type CompositeLogger struct {
-	loggers     []ports.Logger
-	hooks       []ports.Hook
-	ch          chan logEntry
-	wg          sync.WaitGroup
-	contextKeys []any
-}
-
-// Init initializes the global logger instance with the provided settings.
-// This function must be called before any other logging operations.
-// If an instance already exists, it will be gracefully shut down (flushing queued logs)
-// before the new instance is started.
-//
-// Usage:
-//
-//	composite_logger.Init(
-//	    setting.ConsoleSetting{Enabled: true, LowerLevel: composite_logger.InfoLevel},
-//	    setting.FileSetting{Enabled: true, Path: "app.log", LowerLevel: composite_logger.WarningLevel},
-//	)
+// Init initializes the global logger instance with the provided settings in SYNCHRONOUS mode.
+// This is the default mode where log calls block until all adapters have processed the message.
+// If an instance already exists, it will be gracefully shut down before the new instance is started.
 func Init(settings ...LoggerSetting) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// In case of re-initializing composite logger
 	if instance != nil {
-		instance.flushAndClose()
+		instance.Stop()
 	}
 
+	loggers := initLoggers(settings)
+	instance = hub.NewSyncCompositeLogger(loggers)
+}
+
+// InitAsync initializes the global logger instance in ASYNCHRONOUS mode.
+// Log calls are non-blocking, as entries are processed by a background worker goroutine.
+// If an instance already exists, it will be gracefully shut down before the new instance is started.
+//
+// CRITICAL: Always call Stop() when using async mode to ensure all queued logs are flushed before exit.
+func InitAsync(settings ...LoggerSetting) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if instance != nil {
+		instance.Stop()
+	}
+
+	loggers := initLoggers(settings)
+	instance = hub.NewAsyncCompositeLogger(loggers, 1000)
+}
+
+func initLoggers(settings []LoggerSetting) []ports.Logger {
 	loggers := make([]ports.Logger, 0, len(settings))
 	for _, s := range settings {
 		if s.IsEnabled() {
 			loggers = append(loggers, s.InitLogger())
 		}
 	}
-
-	instance = &CompositeLogger{
-		loggers: loggers,
-		ch:      make(chan logEntry, 1000),
-	}
-
-	instance.wg.Add(1)
-	go instance.listenAndBroadcast()
+	return loggers
 }
 
 // AddHook adds a hook to the global logger instance.
 // Hooks are executed for each log entry before it is broadcast to adapters.
-//
-// Usage:
-//
-//	composite_logger.AddHook(MyOtelHook{})
 func AddHook(hook ports.Hook) {
 	mu.Lock()
 	defer mu.Unlock()
 	if instance != nil {
-		instance.hooks = append(instance.hooks, hook)
+		instance.AddHook(hook)
 	}
 }
 
 // SetContextKeys registers a list of context keys that the logger should automatically
 // extract from the provided context and add to the log fields.
-// This is useful for automatically including trace IDs, request IDs, etc.
-//
-// Usage:
-//
-//	composite_logger.SetContextKeys("trace_id", "request_id")
 func SetContextKeys(keys ...any) {
 	mu.Lock()
 	defer mu.Unlock()
 	if instance != nil {
-		instance.contextKeys = keys
+		instance.SetContextKeys(keys...)
 	}
-}
-
-// listenAndBroadcast is a background worker that processes the log queue
-// and sends entries to all registered adapters.
-func (cl *CompositeLogger) listenAndBroadcast() {
-	defer cl.wg.Done()
-	for entry := range cl.ch {
-		// Automatically enrich fields from context if keys are registered
-		if entry.ctx != nil && len(cl.contextKeys) > 0 {
-			if entry.fields == nil {
-				entry.fields = make(map[string]interface{})
-			}
-			for _, key := range cl.contextKeys {
-				if val := entry.ctx.Value(key); val != nil {
-					// Use string representation of the key as the field name
-					keyStr, ok := key.(string)
-					if !ok {
-						keyStr = fmt.Sprintf("%v", key)
-					}
-
-					// Only add if not already present in explicit fields
-					if _, exists := entry.fields[keyStr]; !exists {
-						entry.fields[keyStr] = val
-					}
-				}
-			}
-		}
-
-		// Call registered hooks before broadcasting to adapters
-		if len(cl.hooks) > 0 {
-			if entry.fields == nil {
-				entry.fields = make(map[string]interface{})
-			}
-
-			ctx := entry.ctx
-			if ctx == nil {
-				ctx = context.Background()
-			}
-
-			levelStr := entry.level.String()
-			for _, hook := range cl.hooks {
-				_ = hook.Fire(ctx, levelStr, entry.message, entry.fields)
-			}
-		}
-
-		for _, logger := range cl.loggers {
-			if entry.ctx != nil {
-				switch entry.level {
-				case InfoLevel:
-					logger.InfoContext(entry.ctx, entry.message, entry.fields)
-				case WarningLevel:
-					logger.WarnContext(entry.ctx, entry.message, entry.fields)
-				case ErrorLevel:
-					logger.ErrorContext(entry.ctx, entry.message, entry.fields)
-				case FatalLevel:
-					logger.FatalContext(entry.ctx, entry.message, entry.fields)
-				}
-			} else {
-				switch entry.level {
-				case InfoLevel:
-					logger.Info(entry.message, entry.fields)
-				case WarningLevel:
-					logger.Warn(entry.message, entry.fields)
-				case ErrorLevel:
-					logger.Error(entry.message, entry.fields)
-				case FatalLevel:
-					logger.Fatal(entry.message, entry.fields)
-				}
-			}
-		}
-	}
-}
-
-// flushAndClose closes the log queue and waits for the worker to finish processing remaining entries.
-func (cl *CompositeLogger) flushAndClose() {
-	close(cl.ch)
-	cl.wg.Wait()
 }
 
 // Stop gracefully shuts down the global logger, ensuring all queued logs are processed
 // before the application exits. It is highly recommended to defer this call in your main function.
-//
-// Usage:
-//
-//	defer composite_logger.Stop()
 func Stop() {
 	mu.Lock()
 	defer mu.Unlock()
 	if instance != nil {
-		instance.flushAndClose()
+		instance.Stop()
 		instance = nil
 	}
 }
 
-// Info asynchronously logs a message with the INFO level.
-// This is suitable for general status updates and application milestones.
-//
-// Usage:
-//
-//	composite_logger.Info("application started", map[string]interface{}{"env": "prod"})
+// Info logs a message with the INFO level.
 func Info(msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   InfoLevel,
-		message: "[INFO] " + msg,
-		fields:  fields,
-	}
+	instance.Log(int(InfoLevel), "[INFO] "+msg, fields)
 }
 
-// InfoContext asynchronously logs a message with the INFO level and provides calling context.
-// Use this to correlate logs with specific requests or background tasks.
-// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
-//
-// Usage:
-//
-//	composite_logger.InfoContext(ctx, "processing user request", map[string]interface{}{"userID": 123})
+// InfoContext logs a message with the INFO level and provides calling context.
 func InfoContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   InfoLevel,
-		message: "[INFO] " + msg,
-		fields:  fields,
-		ctx:     ctx,
-	}
+	instance.LogContext(ctx, int(InfoLevel), "[INFO] "+msg, fields)
 }
 
-// Warn asynchronously logs a message with the WARNING level.
-// Use this for alerts that don't stop the application but require investigation.
-//
-// Usage:
-//
-//	composite_logger.Warn("disk space low", map[string]interface{}{"available": "500MB"})
+// Warn logs a message with the WARNING level.
 func Warn(msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   WarningLevel,
-		message: "[WARNING] " + msg,
-		fields:  fields,
-	}
+	instance.Log(int(WarningLevel), "[WARNING] "+msg, fields)
 }
 
-// WarnContext asynchronously logs a message with the WARNING level and provides calling context.
-// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
+// WarnContext logs a message with the WARNING level and provides calling context.
 func WarnContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   WarningLevel,
-		message: "[WARNING] " + msg,
-		fields:  fields,
-		ctx:     ctx,
-	}
+	instance.LogContext(ctx, int(WarningLevel), "[WARNING] "+msg, fields)
 }
 
-// Error captures a stack trace and asynchronously logs a message with the ERROR level.
-// This is used for recoverable failures that shouldn't crash the program.
-//
-// Usage:
-//
-//	composite_logger.Error("database query failed", map[string]interface{}{"error": err})
+// Error captures a stack trace and logs a message with the ERROR level.
 func Error(msg string, fields map[string]interface{}) {
 	fields = internal.BuildErrorContextWithStackTrace(fields)
 
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   ErrorLevel,
-		message: "[ERROR] " + msg,
-		fields:  fields,
-	}
+	instance.Log(int(ErrorLevel), "[ERROR] "+msg, fields)
 }
 
-// ErrorContext captures a stack trace and asynchronously logs a message with the ERROR level and context.
-// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
+// ErrorContext captures a stack trace and logs a message with the ERROR level and context.
 func ErrorContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	fields = internal.BuildErrorContextWithStackTrace(fields)
 
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   ErrorLevel,
-		message: "[ERROR] " + msg,
-		fields:  fields,
-		ctx:     ctx,
-	}
+	instance.LogContext(ctx, int(ErrorLevel), "[ERROR] "+msg, fields)
 }
 
-// Fatal captures a stack trace and asynchronously logs a message with the FATAL level.
-// This level indicates a critical system failure. Note: This library does not call os.Exit;
-// your application logic should decide when to terminate.
-//
-// Usage:
-//
-//	composite_logger.Fatal("failed to load essential config", map[string]interface{}{"file": "config.yaml"})
+// Fatal captures a stack trace and logs a message with the FATAL level.
 func Fatal(msg string, fields map[string]interface{}) {
 	fields = internal.BuildErrorContextWithStackTrace(fields)
 
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   FatalLevel,
-		message: "[FATAL] " + msg,
-		fields:  fields,
-	}
+	instance.Log(int(FatalLevel), "[FATAL] "+msg, fields)
 }
 
-// FatalContext captures a stack trace and asynchronously logs a message with the FATAL level and context.
-// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
+// FatalContext captures a stack trace and logs a message with the FATAL level and context.
 func FatalContext(ctx context.Context, msg string, fields map[string]interface{}) {
 	fields = internal.BuildErrorContextWithStackTrace(fields)
 
 	mu.Lock()
 	defer mu.Unlock()
-	if instance == nil || instance.ch == nil {
+	if instance == nil {
 		return
 	}
-	instance.ch <- logEntry{
-		level:   FatalLevel,
-		message: "[FATAL] " + msg,
-		fields:  fields,
-		ctx:     ctx,
-	}
+	instance.LogContext(ctx, int(FatalLevel), "[FATAL] "+msg, fields)
 }
 
 // Recover is a helper function to be used in defer statements to catch and log panics as FATAL errors.
-// It automatically captures the panic reason and the current stack trace.
-//
-// Usage:
-//
-//	defer composite_logger.Recover(map[string]interface{}{"handler": "user_create"})
 func Recover(fields map[string]interface{}) {
 	if r := recover(); r != nil {
 		Fatal("Panic recovered", map[string]interface{}{
@@ -404,12 +230,6 @@ func Recover(fields map[string]interface{}) {
 }
 
 // RecoverContext is a helper function to be used in defer statements to catch and log panics as FATAL errors with context.
-// This is useful for capturing trace and request IDs during a crash.
-// Note: If the provided context is already cancelled or timed out, the log entry will be ignored by all adapters.
-//
-// Usage:
-//
-//	defer composite_logger.RecoverContext(ctx, map[string]interface{}{"handler": "user_create"})
 func RecoverContext(ctx context.Context, fields map[string]interface{}) {
 	if r := recover(); r != nil {
 		FatalContext(ctx, "Panic recovered", map[string]interface{}{

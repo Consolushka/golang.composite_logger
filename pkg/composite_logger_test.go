@@ -269,6 +269,18 @@ func TestInit_Empty(t *testing.T) {
 	Stop()
 }
 
+func TestInitAsync_FanOut(t *testing.T) {
+	l := &fakeLogger{}
+	InitAsync(testSetting{l})
+
+	Info("async log", nil)
+	// Stop is required to ensure the background worker finishes
+	Stop()
+
+	require.Len(t, l.infoCalls, 1)
+	assert.Equal(t, "[INFO] async log", l.infoCalls[0].message)
+}
+
 func TestRecover_NilContext(t *testing.T) {
 	l := &fakeLogger{}
 	Init(testSetting{l})
