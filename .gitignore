@@ -20,4 +20,4 @@
 
 # Project specific
 logs/
-composite_logger
+/composite_logger

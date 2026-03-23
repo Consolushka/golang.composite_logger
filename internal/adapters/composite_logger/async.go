@@ -1,0 +1,86 @@
+package composite_logger
+
+import (
+	"context"
+	"sync"
+
+	"github.com/Consolushka/golang.composite_logger/pkg/ports"
+)
+
+type logEntry struct {
+	ctx     context.Context
+	level   int
+	message string
+	fields  map[string]interface{}
+}
+
+// AsyncCompositeLogger implements the ports.CompositeLogger interface for non-blocking log dispatch using a background worker.
+type AsyncCompositeLogger struct {
+	loggers     []ports.Logger
+	hooks       []ports.Hook
+	contextKeys []any
+	mu          sync.RWMutex
+	ch          chan logEntry
+	wg          sync.WaitGroup
+}
+
+// NewAsyncCompositeLogger creates a new asynchronous composite logger and starts its background worker.
+func NewAsyncCompositeLogger(loggers []ports.Logger, bufferSize int) *AsyncCompositeLogger {
+	a := &AsyncCompositeLogger{
+		loggers: loggers,
+		ch:      make(chan logEntry, bufferSize),
+	}
+	a.wg.Add(1)
+	go a.listenAndBroadcast()
+	return a
+}
+
+// Log queues a log entry for asynchronous dispatch.
+func (a *AsyncCompositeLogger) Log(level int, message string, fields map[string]interface{}) {
+	if a.ch != nil {
+		a.ch <- logEntry{ctx: context.Background(), level: level, message: message, fields: fields}
+	}
+}
+
+// LogContext queues a log entry with calling context for asynchronous dispatch.
+func (a *AsyncCompositeLogger) LogContext(ctx context.Context, level int, message string, fields map[string]interface{}) {
+	if a.ch != nil {
+		a.ch <- logEntry{ctx: ctx, level: level, message: message, fields: fields}
+	}
+}
+
+// AddHook registers a new hook to the logger instance.
+func (a *AsyncCompositeLogger) AddHook(hook ports.Hook) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.hooks = append(a.hooks, hook)
+}
+
+// SetContextKeys registers context keys for automatic log enrichment.
+func (a *AsyncCompositeLogger) SetContextKeys(keys ...any) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.contextKeys = keys
+}
+
+// Stop closes the log channel and waits for the worker to finish processing queued logs.
+func (a *AsyncCompositeLogger) Stop() {
+	if a.ch != nil {
+		close(a.ch)
+		a.wg.Wait()
+		a.ch = nil
+	}
+}
+
+func (a *AsyncCompositeLogger) listenAndBroadcast() {
+	defer a.wg.Done()
+	for entry := range a.ch {
+		a.mu.RLock()
+		hooks := a.hooks
+		contextKeys := a.contextKeys
+		loggers := a.loggers
+		a.mu.RUnlock()
+
+		broadcast(entry.ctx, entry.level, entry.message, entry.fields, loggers, hooks, contextKeys)
+	}
+}
