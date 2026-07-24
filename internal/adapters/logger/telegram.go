@@ -59,10 +59,6 @@ func (t TelegramLogger) send(ctx context.Context, message string, fields map[str
 		return
 	}
 
-	if ctx != nil && ctx.Err() != nil {
-		return
-	}
-
 	text := formatTelegramMarkdown(message, fields, level, t)
 
 	tgMessage := tgbotapi.NewMessage(t.LogChatId, text)

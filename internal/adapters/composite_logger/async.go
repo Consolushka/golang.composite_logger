@@ -22,6 +22,12 @@ type AsyncCompositeLogger struct {
 	mu          sync.RWMutex
 	ch          chan logEntry
 	wg          sync.WaitGroup
+
+	// stateMu is separate from mu: the worker holds mu while draining the
+	// channel, so guarding the channel with the same mutex could deadlock
+	// senders blocked on a full buffer during Stop.
+	stateMu sync.RWMutex
+	closed  bool
 }
 
 // NewAsyncCompositeLogger creates a new asynchronous composite logger and starts its background worker.
@@ -37,16 +43,27 @@ func NewAsyncCompositeLogger(loggers []ports.Logger, bufferSize int) *AsyncCompo
 
 // Log queues a log entry for asynchronous dispatch.
 func (a *AsyncCompositeLogger) Log(level int, message string, fields map[string]interface{}) {
-	if a.ch != nil {
-		a.ch <- logEntry{ctx: context.Background(), level: level, message: message, fields: fields}
-	}
+	a.enqueue(logEntry{ctx: context.Background(), level: level, message: message, fields: fields})
 }
 
 // LogContext queues a log entry with calling context for asynchronous dispatch.
 func (a *AsyncCompositeLogger) LogContext(ctx context.Context, level int, message string, fields map[string]interface{}) {
-	if a.ch != nil {
-		a.ch <- logEntry{ctx: ctx, level: level, message: message, fields: fields}
+	if ctx == nil {
+		ctx = context.Background()
 	}
+	// The worker processes the entry after the caller's request may have
+	// finished. Detach cancellation so the log survives the request's
+	// lifetime while context values stay available for enrichment.
+	a.enqueue(logEntry{ctx: context.WithoutCancel(ctx), level: level, message: message, fields: fields})
+}
+
+func (a *AsyncCompositeLogger) enqueue(entry logEntry) {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	if a.closed {
+		return
+	}
+	a.ch <- entry
 }
 
 // AddHook registers a new hook to the logger instance.
@@ -65,11 +82,16 @@ func (a *AsyncCompositeLogger) SetContextKeys(keys ...any) {
 
 // Stop closes the log channel and waits for the worker to finish processing queued logs.
 func (a *AsyncCompositeLogger) Stop() {
-	if a.ch != nil {
-		close(a.ch)
-		a.wg.Wait()
-		a.ch = nil
+	a.stateMu.Lock()
+	if a.closed {
+		a.stateMu.Unlock()
+		return
 	}
+	a.closed = true
+	close(a.ch)
+	a.stateMu.Unlock()
+
+	a.wg.Wait()
 }
 
 func (a *AsyncCompositeLogger) listenAndBroadcast() {

@@ -9,7 +9,9 @@ import (
 )
 
 func main() {
-	// TIP: Providing a context with cancellation (or timeout) is highly recommended for network-based adapters like Telegram. It prevents your application from making useless API calls if the operation has already been aborted.
+	// The context passed to *Context methods is a source of values (trace id,
+	// request id, ...) — cancellation never suppresses a log. A log written for
+	// a timed-out or cancelled request is exactly the one you want to keep.
 	defer composite_logger.Stop()
 
 	// 1. Initialize telegram logger (use real keys in your project)
@@ -22,14 +24,12 @@ func main() {
 		},
 	)
 
-	// 2. Demonstrate context cancellation
-	// Creating a context that will be canceled before log dispatch
+	// 2. Even a cancelled context does not stop the log from being delivered
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancelling immediately
 
-	// 3. Try to log with a canceled context
-	// In the logs, you should see nothing, and no network request will be sent to Telegram.
-	composite_logger.InfoContext(ctx, "This log will be skipped due to context cancellation", nil)
+	// 3. The message is still sent to Telegram
+	composite_logger.InfoContext(ctx, "This log is delivered even though the context is cancelled", nil)
 
-	fmt.Println("Check your logs or console output. The message above was skipped before reaching the network.")
+	fmt.Println("Check your Telegram chat. The message above was delivered despite the cancelled context.")
 }
